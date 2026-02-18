@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+{% block title %}OSINT Hub - New Scan{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left: Input Form -->
+    <div class="lg:col-span-1">
+        <div class="card rounded-lg p-6 sticky top-20">
+            <h2 class="text-xl font-semibold text-white mb-1">Target Information</h2>
+            <p class="text-sm text-gray-400 mb-6">Provide as much detail as possible for accurate results. More inputs = better cross-referencing.</p>
+
+            <form id="scan-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Email Address</label>
+                    <input type="email" name="email" id="input-email" placeholder="target@example.com"
+                        class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
+                    <p class="text-xs text-gray-500 mt-1">Checks: holehe, breaches, theHarvester, GHunt</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Username(s)</label>
+                    <input type="text" name="username" id="input-username" placeholder="johndoe"
+                        class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
+                    <p class="text-xs text-gray-500 mt-1">Checks: sherlock, maigret, blackbird, nexfil (comma-separate multiple)</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Phone Number</label>
+                    <input type="tel" name="phone" id="input-phone" placeholder="+1234567890"
+                        class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
+                    <p class="text-xs text-gray-500 mt-1">Checks: phoneinfoga (include country code)</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
+                    <input type="text" name="full_name" id="input-fullname" placeholder="John Doe"
+                        class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
+                    <p class="text-xs text-gray-500 mt-1">Used for correlation and verification</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Domain</label>
+                    <input type="text" name="domain" id="input-domain" placeholder="example.com"
+                        class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
+                    <p class="text-xs text-gray-500 mt-1">Checks: theHarvester, spiderfoot</p>
+                </div>
+
+                <div class="pt-2 space-y-3">
+                    <button type="submit" id="btn-start"
+                        class="w-full py-3 bg-gradient-to-r from-purple-600 to-red-500 text-white font-semibold rounded-lg hover:opacity-90 transition">
+                        Launch Scan
+                    </button>
+                    <button type="button" id="btn-stop" style="display:none"
+                        class="w-full py-3 bg-red-900/40 text-red-400 border border-red-900/50 font-semibold rounded-lg hover:bg-red-900/60 transition">
+                        Stop Scan
+                    </button>
+                </div>
+            </form>
+
+            <!-- Disclaimer -->
+            <div class="mt-6 p-3 rounded bg-yellow-900/20 border border-yellow-800/30">
+                <p class="text-xs text-yellow-400/80">
+                    For authorized security testing only. Ensure you have permission
+                    to investigate the target. You are responsible for lawful usage.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Live Dashboard -->
+    <div class="lg:col-span-2 space-y-6">
+
+        <!-- Progress Bar -->
+        <div id="progress-section" class="card rounded-lg p-4" style="display:none">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-gray-300" id="progress-label">Initializing...</span>
+                <span class="mono text-sm text-purple-400" id="progress-pct">0%</span>
+            </div>
+            <div class="w-full bg-dark-900 rounded-full h-2">
+                <div id="progress-bar" class="h-2 rounded-full bg-gradient-to-r from-purple-600 to-cyan-400 transition-all duration-500" style="width:0%"></div>
+            </div>
+            <div class="overflow-hidden h-1 mt-1">
+                <div class="scan-line w-full h-full"></div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div id="stats-section" class="grid grid-cols-4 gap-3" style="display:none">
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-cyber-green mono" id="stat-findings">0</div>
+                <div class="text-xs text-gray-500">Findings</div>
+            </div>
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-cyber-blue mono" id="stat-tools">0</div>
+                <div class="text-xs text-gray-500">Tools Run</div>
+            </div>
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-purple-400 mono" id="stat-profiles">0</div>
+                <div class="text-xs text-gray-500">Profiles</div>
+            </div>
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-cyber-yellow mono" id="stat-breaches">0</div>
+                <div class="text-xs text-gray-500">Breaches</div>
+            </div>
+        </div>
+
+        <!-- Findings by Category -->
+        <div id="findings-section" style="display:none">
+            <h3 class="text-lg font-semibold text-white mb-3">Findings</h3>
+            <div class="space-y-3" id="findings-container"></div>
+        </div>
+
+        <!-- Tool Runs -->
+        <div id="tool-runs-section" style="display:none">
+            <h3 class="text-lg font-semibold text-white mb-3">Tool Activity</h3>
+            <div class="space-y-2" id="tool-runs-container"></div>
+        </div>
+
+        <!-- Live Log -->
+        <div id="log-section" class="card rounded-lg p-4" style="display:none">
+            <h3 class="text-sm font-semibold text-gray-400 mb-2">Live Log</h3>
+            <div id="log-container" class="mono text-xs text-gray-500 max-h-64 overflow-y-auto space-y-0.5"></div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CATEGORY_CONFIG = {
+    social_profile: { label: 'Social Profiles', color: 'text-cyber-blue', bg: 'bg-blue-900/20' },
+    registered_site: { label: 'Registered Sites', color: 'text-cyan-400', bg: 'bg-cyan-900/20' },
+    breach: { label: 'Breaches', color: 'text-cyber-red', bg: 'bg-red-900/20' },
+    email: { label: 'Emails', color: 'text-purple-400', bg: 'bg-purple-900/20' },
+    related_email: { label: 'Related Emails', color: 'text-purple-300', bg: 'bg-purple-900/20' },
+    username: { label: 'Usernames', color: 'text-cyber-green', bg: 'bg-green-900/20' },
+    related_username: { label: 'Related Usernames', color: 'text-green-300', bg: 'bg-green-900/20' },
+    phone: { label: 'Phones', color: 'text-yellow-400', bg: 'bg-yellow-900/20' },
+    full_name: { label: 'Names', color: 'text-white', bg: 'bg-gray-800' },
+    location: { label: 'Locations', color: 'text-orange-400', bg: 'bg-orange-900/20' },
+    photo_url: { label: 'Photos', color: 'text-pink-400', bg: 'bg-pink-900/20' },
+    domain: { label: 'Domains', color: 'text-teal-400', bg: 'bg-teal-900/20' },
+    ip_address: { label: 'IP Addresses', color: 'text-gray-300', bg: 'bg-gray-800' },
+    raw: { label: 'Intelligence', color: 'text-gray-400', bg: 'bg-gray-800' },
+};
+
+const STATUS_COLORS = {
+    pending: 'text-gray-500',
+    running: 'text-cyber-yellow pulse-dot',
+    completed: 'text-cyber-green',
+    failed: 'text-red-400',
+};
+
+let polling = null;
+
+document.getElementById('scan-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const data = {
+        email: document.getElementById('input-email').value,
+        username: document.getElementById('input-username').value,
+        phone: document.getElementById('input-phone').value,
+        full_name: document.getElementById('input-fullname').value,
+        domain: document.getElementById('input-domain').value,
+    };
+
+    fetch('/api/scan/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    })
+    .then(r => r.json())
+    .then(result => {
+        if (result.error) {
+            alert(result.error);
+            return;
+        }
+        document.getElementById('btn-start').style.display = 'none';
+        document.getElementById('btn-stop').style.display = 'block';
+        document.getElementById('progress-section').style.display = 'block';
+        document.getElementById('stats-section').style.display = 'grid';
+        document.getElementById('findings-section').style.display = 'block';
+        document.getElementById('tool-runs-section').style.display = 'block';
+        document.getElementById('log-section').style.display = 'block';
+        startPolling();
+    });
+});
+
+document.getElementById('btn-stop').addEventListener('click', function() {
+    fetch('/api/scan/stop', { method: 'POST' });
+});
+
+function startPolling() {
+    if (polling) clearInterval(polling);
+    polling = setInterval(pollStatus, 1500);
+    pollStatus();
+}
+
+function pollStatus() {
+    Promise.all([
+        fetch('/api/scan/status').then(r => r.json()),
+        fetch('/api/scan/results').then(r => r.json()),
+    ]).then(([status, results]) => {
+        updateProgress(status);
+        updateLog(status);
+        updateResults(results);
+        updateToolRuns(results);
+
+        if (status.phase === 'complete') {
+            clearInterval(polling);
+            document.getElementById('btn-stop').style.display = 'none';
+            document.getElementById('btn-start').style.display = 'block';
+            document.getElementById('btn-start').textContent = 'Run Again';
+            document.getElementById('progress-label').textContent = 'Scan Complete';
+        }
+    }).catch(() => {});
+}
+
+function updateProgress(status) {
+    document.getElementById('progress-bar').style.width = status.progress + '%';
+    document.getElementById('progress-pct').textContent = status.progress + '%';
+    const phases = { scanning: 'Scanning...', correlating: 'Cross-referencing...', chaining: `Chasing leads (depth ${status.chain_depth})...`, complete: 'Complete' };
+    document.getElementById('progress-label').textContent =
+        (status.current_tool ? `Running ${status.current_tool}` : (phases[status.phase] || status.phase));
+}
+
+function updateLog(status) {
+    const container = document.getElementById('log-container');
+    container.innerHTML = '';
+    for (const entry of status.log || []) {
+        const el = document.createElement('div');
+        el.className = 'log-entry';
+        const isPhase = entry.message.startsWith('===');
+        const isError = entry.message.includes('FAIL') || entry.message.includes('ERROR');
+        const colorClass = isPhase ? 'text-purple-400' : (isError ? 'text-red-400' : 'text-gray-500');
+        el.innerHTML = `<span class="text-gray-600">${entry.time}</span> <span class="${colorClass}">${entry.message}</span>`;
+        container.appendChild(el);
+    }
+    container.scrollTop = container.scrollHeight;
+}
+
+function updateResults(results) {
+    if (!results || !results.findings_by_type) return;
+    const fbt = results.findings_by_type;
+
+    // Stats
+    document.getElementById('stat-findings').textContent = results.total_findings || 0;
+    document.getElementById('stat-tools').textContent = results.total_tool_runs || 0;
+    document.getElementById('stat-profiles').textContent = (fbt.social_profile || []).length;
+    document.getElementById('stat-breaches').textContent = (fbt.breach || []).length;
+
+    // Findings by category
+    const container = document.getElementById('findings-container');
+    container.innerHTML = '';
+
+    const sortedTypes = Object.keys(fbt).sort((a, b) => (fbt[b] || []).length - (fbt[a] || []).length);
+    for (const ftype of sortedTypes) {
+        const items = fbt[ftype];
+        if (!items || items.length === 0) continue;
+        const config = CATEGORY_CONFIG[ftype] || { label: ftype, color: 'text-gray-400', bg: 'bg-gray-800' };
+
+        let html = `<div class="card rounded-lg p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="font-medium ${config.color}">${config.label}</h4>
+                <span class="mono text-xs ${config.color}">${items.length}</span>
+            </div>
+            <div class="space-y-1.5">`;
+
+        for (const item of items.slice(0, 50)) {
+            const value = item.value || '';
+            const isUrl = value.startsWith('http');
+            const confidence = Math.round((item.confidence || 0) * 100);
+            const source = item.source_tool || '';
+            const confidenceColor = confidence > 80 ? 'text-green-400' : (confidence > 50 ? 'text-yellow-400' : 'text-gray-500');
+
+            html += `<div class="flex items-center justify-between py-1.5 px-2 rounded ${config.bg} group">
+                <div class="flex-1 min-w-0">
+                    ${isUrl ? `<a href="${value}" target="_blank" class="mono text-sm ${config.color} hover:underline truncate block">${value}</a>`
+                           : `<span class="mono text-sm text-gray-300 truncate block">${value}</span>`}
+                </div>
+                <div class="flex items-center gap-2 ml-3 flex-shrink-0">
+                    <span class="text-xs text-gray-600">${source}</span>
+                    <span class="mono text-xs ${confidenceColor}">${confidence}%</span>
+                </div>
+            </div>`;
+        }
+        if (items.length > 50) {
+            html += `<div class="text-xs text-gray-500 text-center pt-1">+${items.length - 50} more</div>`;
+        }
+        html += '</div></div>';
+        container.innerHTML += html;
+    }
+}
+
+function updateToolRuns(results) {
+    if (!results || !results.tool_runs) return;
+    const container = document.getElementById('tool-runs-container');
+    container.innerHTML = '';
+
+    for (const run of results.tool_runs) {
+        const statusClass = STATUS_COLORS[run.status] || 'text-gray-500';
+        const findingCount = (run.findings || []).length;
+        const statusIcon = run.status === 'completed' ? '&#10003;' : (run.status === 'running' ? '&#9679;' : (run.status === 'failed' ? '&#10007;' : '&#8226;'));
+
+        container.innerHTML += `<div class="flex items-center justify-between py-2 px-3 card rounded">
+            <div class="flex items-center gap-3">
+                <span class="${statusClass}">${statusIcon}</span>
+                <span class="text-sm text-white font-medium">${run.tool_name}</span>
+                <span class="text-xs text-gray-500 mono">${run.input_value}</span>
+            </div>
+            <div class="flex items-center gap-3">
+                ${findingCount > 0 ? `<span class="text-xs text-cyber-green">${findingCount} found</span>` : ''}
+                ${run.error ? `<span class="text-xs text-red-400" title="${run.error}">error</span>` : ''}
+            </div>
+        </div>`;
+    }
+}
+</script>
+{% endblock %}

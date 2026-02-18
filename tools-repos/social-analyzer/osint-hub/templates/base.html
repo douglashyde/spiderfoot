@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OSINT Hub{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 800: '#1a1a2e', 900: '#0f0f23', 700: '#16213e' },
+                        accent: { 500: '#0f3460', 400: '#533483', 300: '#e94560' },
+                        cyber: { green: '#00ff41', blue: '#00d4ff', red: '#ff0040', yellow: '#ffd700' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #0f0f23; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glow { text-shadow: 0 0 10px rgba(0, 255, 65, 0.5); }
+        .glow-blue { text-shadow: 0 0 10px rgba(0, 212, 255, 0.5); }
+        .card { background: rgba(26, 26, 46, 0.8); border: 1px solid rgba(83, 52, 131, 0.3); backdrop-filter: blur(10px); }
+        .card:hover { border-color: rgba(83, 52, 131, 0.6); }
+        .pulse-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .scan-line { background: linear-gradient(90deg, transparent, rgba(0,255,65,0.1), transparent); animation: scanline 3s infinite; }
+        @keyframes scanline { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .log-entry { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f0f23; }
+        ::-webkit-scrollbar-thumb { background: #533483; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-dark-900 text-gray-200 min-h-screen">
+    <!-- Nav -->
+    <nav class="border-b border-purple-900/30 bg-dark-900/90 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded bg-gradient-to-br from-purple-600 to-red-500 flex items-center justify-center font-bold text-white text-sm">OH</div>
+                <span class="text-lg font-semibold text-white">OSINT <span class="text-purple-400">Hub</span></span>
+            </a>
+            <div class="flex items-center gap-6 text-sm">
+                <a href="/" class="text-gray-400 hover:text-white transition">Dashboard</a>
+                <a href="/scan" class="text-gray-400 hover:text-white transition">New Scan</a>
+                <a href="/results" class="text-gray-400 hover:text-white transition">Results</a>
+                <span id="nav-status" class="mono text-xs text-gray-600"></span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        // Global status poller
+        function updateNavStatus() {
+            fetch('/api/scan/status')
+                .then(r => r.json())
+                .then(data => {
+                    const el = document.getElementById('nav-status');
+                    if (data.phase === 'scanning' || data.phase === 'chaining' || data.phase === 'correlating') {
+                        el.innerHTML = '<span class="text-cyber-green pulse-dot">&#9679;</span> Scanning...';
+                    } else if (data.phase === 'complete') {
+                        el.innerHTML = '<span class="text-cyber-blue">&#9679;</span> Complete';
+                    } else {
+                        el.textContent = '';
+                    }
+                })
+                .catch(() => {});
+        }
+        setInterval(updateNavStatus, 3000);
+        updateNavStatus();
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

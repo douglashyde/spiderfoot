@@ -1,0 +1,2875 @@
+#!/usr/bin/env python3
+
+import signal
+import tempfile
+from googlesearch import search # type: ignore
+from smtplib import SMTP, SMTPRecipientsRefused, SMTPSenderRefused, SMTPResponseException
+from email.mime.multipart import MIMEMultipart
+import re
+import json
+import os
+import time
+import socket
+import requests
+from ping3 import ping
+import ipaddress
+import readline
+import colorama
+from colorama import *
+from time import sleep
+import sys
+import json
+from PIL import Image
+from PIL.ExifTags import TAGS
+import piexif
+from prompt_toolkit import print_formatted_text, HTML
+from pathlib import Path
+import platform
+from datetime import datetime
+import phonenumbers # type: ignore
+from phonenumbers import geocoder # type: ignore
+import opencage
+from bs4 import BeautifulSoup as bs
+import tkinter as tk
+from tkinter import messagebox
+import webbrowser
+import stripe # type: ignore
+import tkinter as tk
+from tkinter import filedialog, simpledialog, messagebox
+from PIL import Image, ImageTk
+import base64
+from googleapiclient.discovery import build # type: ignore
+import requests
+from bs4 import BeautifulSoup
+import webbrowser
+from datetime import datetime, timedelta
+from flask import Flask, request, render_template_string
+import requests
+from cryptography.fernet import Fernet # type: ignore
+import subprocess
+import shutil
+import distro
+
+
+##DISCLAIMER
+ACCEPTANCE_FILE = '.disclaimer_accepted'
+
+DISCLAIMER_TEXT = """\033[1;97m
+Welcome to Xosint!!
+
+Disclaimer:
+The information contained on the Service is for general information purposes only.
+The Company (TermuxHackz)  assumes no responsibility for errors or omissions in the contents of the Service
+In no event shall the Company (TermuxHackz) be liable for any special, direct, indirect, consequential, or incidental damages or any damages whatsoever, whether in an action of contract, negligence or other tort, arising out of or in connection with the use of the Service or the contents of the Service. The Company reserves the right to make additions, deletions, or modifications to the contents on the Service at any time without prior notice.
+For more details, please visit:
+https://bit.ly/3TeaSMn
+
+By using this tool, you acknowledge and agree that you are solely responsible for your use of the tool.
+The developer of this tool is not liable for any misuse or illegal activities conducted using this tool.
+
+\033[0m"""
+
+def check_disclaimer():
+    if not os.path.exists(ACCEPTANCE_FILE):
+        print(DISCLAIMER_TEXT)
+        user_input = input("\033[1;93m[+]\033[1;97m Do you accept the disclaimer? (yes/no): ").strip().lower()
+        
+        if user_input == 'yes':
+            with open(ACCEPTANCE_FILE, 'w') as f:
+                f.write('accepted')
+            print("\033[1;93m[+]\033[1;97m Thank you for accepting the disclaimer.\033[0m")
+            os.chmod(ACCEPTANCE_FILE, 0o644)
+            sleep(1)
+            os.system("clear || cls")
+            
+        else:
+            print("\033[1;91m[+]\033[1;92m You must accept the disclaimer to use X-Osint.\033[0m")
+            sys.exit(1)
+
+##Exiftool
+
+def check_exiftool_installed():
+    """Check if ExifTool is installed."""
+    try:
+        result = subprocess.run(["exiftool", "-ver"], capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"ExifTool version {result.stdout.strip()} is already installed.")
+            return True
+        else:
+            return False
+    except FileNotFoundError:
+        return False
+
+def install_exiftool_windows():
+    url = "https://exiftool.org/exiftool-12.66.zip"
+    zip_file = "exiftool.zip"
+    exe_file = "exiftool.exe"
+
+    # Download the ExifTool zip file
+    print("Downloading ExifTool...")
+    subprocess.run(["curl", "-L", "-o", zip_file, url], check=True)
+
+    # Extract the zip file
+    print("Extracting ExifTool...")
+    subprocess.run(["tar", "-xf", zip_file], check=True)
+
+    # Rename the executable
+    extracted_file = "exiftool(-k).exe"
+    os.rename(extracted_file, exe_file)
+
+    # Optionally, add to PATH (e.g., copying to C:\Windows)
+    # Uncomment the following line to copy to C:\Windows
+    # subprocess.run(["copy", exe_file, "C:\\Windows"], check=True)
+
+    print("ExifTool installed successfully on Windows!")
+
+def install_exiftool_macos():
+    # Install ExifTool using Homebrew
+    print("Installing ExifTool via Homebrew...")
+    subprocess.run(["brew", "install", "exiftool"], check=True)
+    print("ExifTool installed successfully on macOS!")
+
+def install_exiftool_linux():
+    distroName = ""
+    # Check if python version <= 3.5, 
+    # platform.linux_distribution is deprecated since 3.5 
+    # and removed since 3.7
+    if (sys.version_info[0] <= 3 and sys.version_info[1] <= 5):
+        distroName = platform.linux_distribution()[0].lower()
+    else:
+        distroName = distro.id()
+
+    if 'ubuntu' in distroName or 'debian' in distroName:
+        print("Installing ExifTool on Ubuntu/Debian...")
+        subprocess.run(["sudo", "apt-get", "update"], check=True)
+        subprocess.run(["sudo", "apt-get", "install", "-y", "libimage-exiftool-perl"], check=True)
+
+    elif 'centos' in distroName or 'rhel' in distroName:
+        print("Installing ExifTool on CentOS/RHEL...")
+        subprocess.run(["sudo", "yum", "install", "-y", "perl-Image-ExifTool"], check=True)
+
+    else:
+        print("Unsupported Linux distribution. Please install ExifTool manually.")
+
+    print("ExifTool installed successfully on Linux!")
+
+def install_exiftool():
+    os_name = platform.system().lower()
+
+    if check_exiftool_installed():
+        print("ExifTool is already installed.")
+        return
+
+    if os_name == "windows":
+        install_exiftool_windows()
+    elif os_name == "darwin":
+        install_exiftool_macos()
+    elif os_name == "linux":
+        install_exiftool_linux()
+    else:
+        print(f"Unsupported OS: {os_name}. Please install ExifTool manually.")
+
+
+    
+##installpackage
+def install_package(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+# Check and install required packages
+
+try:
+    import speedtest
+except ImportError:
+    print("speedtest-cli not found. Installing...")
+    install_package('speedtest-cli')
+    import speedtest
+
+
+try:
+    from ping3 import ping
+except ImportError:
+    print("ping3 not found. Installing...")
+    install_package('ping3')
+    from ping3 import ping
+
+try:
+    import spacy
+except ImportError:
+    print("spaCy not found. Installing...")
+    install_package('spacy')
+    os.system("python -m spacy download en_core_web_sm")
+    import spacy
+
+try:
+    from flask import Flask, render_template
+except ImportError:
+    print("Flask not found. Installing...")
+    install_package('flask')
+    from flask import Flask, render_template
+
+try:
+    from wifi import Cell, Scheme
+except ImportError:
+    print("wifi not found. Installing...")
+    install_package('wifi')
+    from wifi import Cell, Scheme
+    
+try:
+    import qrcode
+except ImportError:
+    print("qrcode not found. Installing...")
+    install_package('qrcode')
+    import qrcode
+
+   
+try:
+    install_exiftool()
+except subprocess.CalledProcessError as e:
+    print(f"An error occurred during installation: {e}")
+    sys.exit(1)
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+    sys.exit(1)
+
+
+def get_geoip_info(ip):
+    response = requests.get(f"https://ipinfo.io/{ip}/json")
+    return response.json()
+
+def get_whois_info(ip):
+    response = requests.get(f"https://whois.arin.net/rest/ip/{ip}.json")
+    return response.json()
+
+def dns_query(dns_ip, domain_query):
+    try:
+        result = socket.gethostbyname_ex(domain_query)
+        return result
+    except Exception as e:
+        return str(e)
+
+def test_speed():
+    # Runs a speed test and returns download, upload speeds, and latency
+    st = speedtest.Speedtest()
+    st.get_best_server()
+    download_speed = st.download() / 1_000_000  # Convert to Mbps
+    upload_speed = st.upload() / 1_000_000  # Convert to Mbps
+    latency = st.results.ping
+    return download_speed, upload_speed, latency
+
+#COLORS
+RED = "\033[1;91m"
+GREEN = "\033[1;92m"
+YELLOW = "\033[1;93m"
+BLUE = "\033[1;94m"
+WHITE = "\033[1;97m"
+RESET = "\033[0m"
+
+##Metadatadef extract_metadata(file_path):
+def extract_metadata(file_path):
+    try:
+        # Build and run the ExifTool command
+        command = ["exiftool", "-j", file_path]
+        ##print(f"{BLUE}Running command:{RESET} {' '.join(command)}")
+        
+        # Execute the command and capture output
+        result = subprocess.run(command, capture_output=True, text=True)
+        
+        # Print raw output for debugging
+        #print(f"{YELLOW}Raw ExifTool output:{RESET} {result.stdout}")
+
+        # Check if the output is empty or invalid
+        if result.returncode != 0:
+            print(f"{RED}Error running ExifTool:{RESET} {result.stderr}")
+            return None
+
+        if not result.stdout:
+            print(f"{RED}Error:{RESET} No metadata was returned by ExifTool.")
+            return None
+
+        # Parse the JSON output
+        try:
+            metadata = json.loads(result.stdout)
+        except json.JSONDecodeError as e:
+            print(f"{RED}Error decoding JSON:{RESET} {e}")
+            return None
+        
+        if len(metadata) > 0:
+            return metadata[0]  # ExifTool returns a list of dictionaries
+        else:
+            print(f"{RED}Error:{RESET} Metadata list is empty.")
+            return None
+
+    except Exception as e:
+        print(f"{RED}Error extracting metadata:{RESET} {e}")
+        return None
+
+def extract_specific_metadata(metadata):
+    if not metadata:
+        return {}
+
+    title = metadata.get("PDF:Title") or metadata.get("ID3:Title") or metadata.get("XMP:Title")
+    author = metadata.get("PDF:Author") or metadata.get("ID3:Artist") or metadata.get("XMP:Creator")
+    creation_date = (metadata.get("EXIF:CreateDate") or 
+                     metadata.get("PDF:CreationDate") or 
+                     metadata.get("ID3:Year") or
+                     metadata.get("QuickTime:CreateDate") or
+                     metadata.get("XMP:CreateDate"))
+
+    latitude = (metadata.get("Composite:GPSLatitude") or
+                metadata.get("EXIF:GPSLatitude") or
+                metadata.get("QuickTime:GPSLatitude") or
+                metadata.get("XMP:GPSLatitude"))
+
+    longitude = (metadata.get("Composite:GPSLongitude") or
+                 metadata.get("EXIF:GPSLongitude") or
+                 metadata.get("QuickTime:GPSLongitude") or
+                 metadata.get("XMP:GPSLongitude"))
+
+    if latitude and longitude:
+        # Convert latitude and longitude from degrees and minutes to decimal degrees
+        latitude = convert_to_decimal_degrees(latitude)
+        longitude = convert_to_decimal_degrees(longitude)
+
+    return {
+        "Title": title,
+        "Author/Artist": author,
+        "Creation Date": creation_date,
+        "Location": (latitude, longitude) if latitude and longitude else None,
+    }
+
+def convert_to_decimal_degrees(coord):
+    """Convert GPS coordinates from degrees and minutes to decimal degrees."""
+    try:
+        if isinstance(coord, str):
+            coord = coord.replace("°", "").replace("'", "").replace('"', "").strip()
+            degrees, minutes = map(float, coord.split())
+            return degrees + (minutes / 60)
+        return coord
+    except ValueError:
+        return None
+
+def print_all_metadata(metadata):
+    for key, value in metadata.items():
+        print(f"{BLUE}{key}:{RESET} {WHITE}{value}{RESET}")
+
+def print_specific_metadata(specific_metadata):
+    for key, value in specific_metadata.items():
+        print(f"{BLUE}{key}:{RESET} {WHITE}{value}{RESET}")
+
+def open_map_location(lat, lon):
+    # Google Maps URL
+    google_maps_url = f"https://www.google.com/maps?q={lat},{lon}"
+    # Apple Maps URL
+    apple_maps_url = f"https://maps.apple.com/?q={lat},{lon}"
+
+    print(f"{GREEN}Opening location in Google Maps:{RESET} {google_maps_url}")
+    webbrowser.open(google_maps_url)
+
+    print(f"{GREEN}Opening location in Apple Maps:{RESET} {apple_maps_url}")
+    webbrowser.open(apple_maps_url)
+
+
+##network mpapping
+app = Flask(__name__)
+
+def scan_wifi_networks():
+    networks = []
+    try:
+        os_type = platform.system()
+        if os_type == "Linux":
+            scan_output = os.popen('sudo iwlist scan 2>/dev/null').read()
+            ssids = re.findall(r'ESSID:"(.*?)"', scan_output)
+            signals = re.findall(r'Signal level=(-\d+) dBm', scan_output)
+            networks = [{'ssid': ssid, 'signal': signal} for ssid, signal in zip(ssids, signals)]
+        elif os_type == "Darwin":  # macOS
+            scan_output = subprocess.check_output(['/usr/sbin/system_profiler', 'SPNetworkDataType'], text=True)
+            ssids = re.findall(r'SSID: (.+)', scan_output)
+            signals = re.findall(r'RSSI: (-\d+)', scan_output)
+            networks = [{'ssid': ssid, 'signal': signal} for ssid, signal in zip(ssids, signals)]
+        else:
+            print("Unsupported OS")
+    except Exception as e:
+        print(f"Error scanning Wi-Fi networks: {e}")
+    return networks  # Always return a list
+
+def get_current_wifi():
+    try:
+        os_type = platform.system()
+        if os_type == "Linux":
+            return os.popen("iwgetid -r").read().strip()
+        elif os_type == "Darwin": 
+            scan_output = subprocess.check_output(['/usr/sbin/system_profiler', 'SPNetworkDataType'], text=True)
+            match = re.search(r'SSID: (.+)', scan_output)
+            return match.group(1) if match else "Not Connected"
+        else:
+            return "Unsupported OS"
+    except Exception as e:
+        print(f"Error getting current Wi-Fi: {e}")
+        return "Unknown"
+
+def generate_wifi_qr(ssid, password=None):
+    if ssid and ssid != "Not Connected":
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        wifi_data = f"WIFI:S:{ssid};T:WPA;P:{password};;" if password else f"WIFI:S:{ssid};;"
+        qr.add_data(wifi_data)
+        qr.make(fit=True)
+        img = qr.make_image(fill='black', back_color='white')
+        img.save("static/wifi_qr.png")
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/network_mapper')
+def network_mapper():
+    current_wifi = get_current_wifi()
+    wifi_networks = scan_wifi_networks()
+    
+    print("Current Wi-Fi:", current_wifi)
+    print("Wi-Fi Networks:", wifi_networks)
+    
+    generate_wifi_qr(current_wifi)  # Generate QR code for current Wi-Fi
+    return render_template('network_mapper.html', current_wifi=current_wifi, wifi_networks=wifi_networks)
+
+
+##Code Analysis
+def run_command(command):
+    """Run a command in the shell and return its output."""
+    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+    return result.stdout.strip(), result.stderr.strip()
+
+def analyze_python_file(file_path):
+    """Analyze a Python file for errors using pylint and flake8."""
+    print(f"\033[1;93m[+]\033[1;97m Analyzing Python file: {file_path}")
+    print("")
+    pylint_command = f"pylint {file_path}"
+    flake8_command = f"flake8 {file_path}"
+    
+    pylint_output, pylint_errors = run_command(pylint_command)
+    flake8_output, flake8_errors = run_command(flake8_command)
+    
+    if pylint_errors:
+        print(f"\033[1;91m[!]\033[1;97m Pylint errors:\n{pylint_errors}")
+        print("")
+    else:
+        print(f"\033[1;91m[+]\033[1;97m  Pylint output:\n{pylint_output}")
+    
+    if flake8_errors:
+        print(f"\033[1;91m[+]\033[1;97m  Flake8 errors:\n{flake8_errors}")
+    else:
+        print(f"\033[1;91m[+]\033[1;97m  Flake8 output:\n{flake8_output}")
+
+def analyze_javascript_file(file_path):
+    """Analyze a JavaScript file for errors using eslint."""
+    print(f"\033[1;91m[+]\033[1;97m Analyzing JavaScript file: {file_path}")
+    eslint_command = f"eslint {file_path}"
+    
+    eslint_output, eslint_errors = run_command(eslint_command)
+    
+    if eslint_errors:
+        print(f"\033[1;91m[+]\033[1;97m ESLint errors:\n{eslint_errors}")
+    else:
+        print(f"\033[1;91m[+]\033[1;97m ESLint output:\n{eslint_output}")
+
+
+##Check for updates from GIthub Repo
+##Fetchupdates
+def get_latest_commit(repo_owner, repo_name):
+    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/commits/master"
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.json()['sha']
+
+def get_local_commit():
+    result = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True)
+    return result.stdout.strip()
+
+def update_repo():
+    subprocess.run(['git', 'fetch', 'origin'], check=True)
+    subprocess.run(['git', 'reset', '--hard', 'origin/master'], check=True)
+
+def copy_to_bin(script_name):
+    bin_path = '/usr/local/bin'
+    script_path = os.path.join(os.getcwd(), script_name)
+    
+    target_path = os.path.join(bin_path, script_name)
+    if os.path.exists(script_path):
+        shutil.copy(script_path, target_path)
+      # Ensure the script is executable
+        os.chmod(target_path, 0o755)
+    else:
+        print(f"\033[1;91m[!]\033[1;97m Script {script_name} not found in the current directory.\033[0m")
+
+    
+def restart_script():
+    python = sys.executable
+    os.execl(python, python, *sys.argv)
+
+def check_for_updates(repo_owner, repo_name, script_name):
+    try:
+        latest_commit = get_latest_commit(repo_owner, repo_name)
+        local_commit = get_local_commit()
+
+        if latest_commit != local_commit:
+            print("Update available. Updating...")
+            update_repo()
+            copy_to_bin(script_name)
+            restart_script()
+        else:
+            print("\033[1;91m[+]\033[1;97m Already up-to-date.")
+    except requests.RequestException as e:
+        print(f"\033[1;91m[!]\033[1;97m Failed to fetch latest commit: {e}")
+    except subprocess.CalledProcessError as e:
+        print(f"\033[1;91m[!]\033[1;97m Failed to update repo: {e}")
+
+
+def update_script():
+    repo_owner = "TermuxHackz"
+    repo_name = "X-Osint"
+    script_name = "xosint"
+
+    # Check for updates
+    check_for_updates(repo_owner, repo_name, script_name)
+
+    # Your existing script logic here
+    print("\033[1;91m[+]\033[1;97m Running main script...")
+    time.sleep(0.5)
+
+# Define the ImageSearchApp function
+API_KEY_FILE = "api_keys.txt"
+
+def save_api_keys(api_key, search_engine_id):
+    with open(API_KEY_FILE, "w") as f:
+        f.write(f"{api_key}\n{search_engine_id}")
+
+def load_api_keys():
+    if os.path.exists(API_KEY_FILE):
+        with open(API_KEY_FILE, "r") as f:
+            keys = f.read().splitlines()
+            if len(keys) == 2:
+                return keys[0], keys[1]
+    return None, None
+
+def image_hunt():
+    root = tk.Tk()
+    root.title("Reverse Image Search")
+
+    # Add title label
+    title_label = tk.Label(root, text="Reverse Image Search", font=("Arial", 18, "bold"))
+    title_label.pack(pady=10)
+
+    # Ask user if they want to watch a demo
+    response = messagebox.askquestion("Demo", "Kindly watch a video on how to get your API keys?")
+    if response == 'yes':
+        # Open YouTube video in web browser
+        webbrowser.open("https://youtu.be/g2WU0aFExMM")
+
+    # Add upload button
+    upload_button = tk.Button(root, text="Upload Image", command=lambda: upload_image(root), font=("Arial", 12, "bold"))
+    upload_button.pack(pady=20)
+
+    # Add image label
+    global image_label
+    image_label = tk.Label(root)
+    image_label.pack(pady=10)
+
+    # Add result label
+    global result_label
+    result_label = tk.Label(root, text="")
+    result_label.pack(pady=10)
+
+    root.protocol("WM_DELETE_WINDOW", lambda: on_closing(root))
+    root.mainloop()
+
+def upload_image(root):
+    api_key, search_engine_id = load_api_keys()
+
+    if not api_key or not search_engine_id:
+        api_key = simpledialog.askstring("API Key", "Enter your Google Custom Search API Key:")
+        search_engine_id = simpledialog.askstring("Search Engine ID", "Enter your Google Custom Search Engine ID:")
+
+        if api_key and search_engine_id:
+            save_api_keys(api_key, search_engine_id)
+        else:
+            messagebox.showerror("Error", "API key and Search Engine ID are required.")
+            return
+
+    file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.png")])
+    if file_path:
+        try:
+            image = Image.open(file_path)
+            image = image.resize((400, 400), Image.LANCZOS)
+            photo = ImageTk.PhotoImage(image)
+
+            image_label.config(image=photo)
+            image_label.image = photo  # Keep a reference to avoid garbage collection
+
+            google_results = reverse_image_search_google(api_key, search_engine_id, file_path)
+            show_results(google_results)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+def reverse_image_search_google(api_key, search_engine_id, image_path):
+    service = build("customsearch", "v1", developerKey=api_key)
+    with open(image_path, "rb") as image_file:
+        image_content = base64.b64encode(image_file.read()).decode('utf-8')
+
+    search_response = service.cse().list(
+        q='',
+        cx=search_engine_id,
+        searchType='image',
+        num=10
+    ).execute()
+
+    results = []
+    if 'items' in search_response:
+        for item in search_response['items']:
+            results.append(item['link'])
+
+    return results
+
+def show_results(google_results):
+    if google_results:
+        google_text = "Google Search Results:\n" + "\n".join(google_results[:5])
+    else:
+        google_text = "No Google search results found."
+
+    result_label.config(text=google_text)
+
+def on_closing(root):
+    root.destroy()
+    exit()
+
+
+###Add News OSint script here
+def get_news_articles(query, api_key):
+    url = f'https://newsapi.org/v2/everything?q={query}&apiKey={api_key}'
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()['articles']
+    else:
+        print(f"Error: {response.status_code}")
+        return []
+
+def newsOsint():
+    api_key = 'a701b803d0ac4fc89aaded6143de644d'
+    
+    # Prompt the user to input a name
+    name = input("\033[1;91m[+]\033[1;97mEnter the name you want to search for: \033[0m")
+    
+    # Fetch news articles related to the input name
+    articles = get_news_articles(name, api_key)
+    
+    # Display the articles
+    if articles:
+        print(f"\nNews articles about {name}:\n")
+        for i, article in enumerate(articles, start=1):
+            print(f"{i}. {article['title']}")
+            print(f"   Source: {article['source']['name']}")
+            print("")
+            print(f"   Link: {article['url']}\n")
+    else:
+        print("No articles found.")
+
+
+###Phone number Location
+def get_api_keys():
+    if os.path.exists('numandcage_keys.txt'):
+        with open('numandcage_keys.txt', 'r') as file:
+            keys = file.readlines()
+            if len(keys) == 4:
+                ipqualityscore_api_key = keys[0].strip()
+                opencage_api_key = keys[1].strip()
+                vonage_api_key = keys[2].strip()
+                vonage_api_secret = keys[3].strip()
+            else:
+                ipqualityscore_api_key, opencage_api_key, vonage_api_key, vonage_api_secret = get_and_save_api_keys()
+    else:
+        ipqualityscore_api_key, opencage_api_key, vonage_api_key, vonage_api_secret = get_and_save_api_keys()
+    
+    return ipqualityscore_api_key, opencage_api_key, vonage_api_key, vonage_api_secret
+
+def get_and_save_api_keys():
+    while True:
+        ipqualityscore_api_key = input("\033[1;91m[\033[1;33;40m*\033[0m\033[1;91m] \033[1;97m Enter your IPQualityScore API key: \033[0m").strip()
+        opencage_api_key = input("\033[1;91m[\033[1;33;40m*\033[0m\033[1;91m] \033[1;97m Enter your OpenCage API key: \033[0m").strip()
+        vonage_api_key = input("\033[1;91m[\033[1;33;40m*\033[0m\033[1;91m] \033[1;97m Enter your Vonage API key: \033[0m").strip()
+        vonage_api_secret = input("\033[1;91m[\033[1;33;40m*\033[0m\033[1;91m] \033[1;97m Enter your Vonage API secret: \033[0m").strip()
+        if ipqualityscore_api_key and opencage_api_key and vonage_api_key and vonage_api_secret:
+            with open('numandcage_keys.txt', 'w') as file:
+                file.write(f"{ipqualityscore_api_key}\n{opencage_api_key}\n{vonage_api_key}\n{vonage_api_secret}")
+            return ipqualityscore_api_key, opencage_api_key, vonage_api_key, vonage_api_secret
+        else:
+            print("\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;97m Please enter valid API keys. \033[0m")
+
+def get_phone_info(phone_number, ipqualityscore_api_key, vonage_api_key, vonage_api_secret):
+    ipqualityscore_url = f"https://ipqualityscore.com/api/json/phone/{ipqualityscore_api_key}/{phone_number}"
+    response = requests.get(ipqualityscore_url)
+    ipqualityscore_info = response.json()
+
+    vonage_url = f"https://api.nexmo.com/ni/advanced/async/json"
+    vonage_params = {
+        'api_key': vonage_api_key,
+        'api_secret': vonage_api_secret,
+        'number': phone_number
+    }
+    response = requests.get(vonage_url, params=vonage_params)
+    vonage_info = response.json()
+
+    phone_info = {**ipqualityscore_info, **vonage_info}  # Merge dictionaries
+    return phone_info
+
+
+
+def get_location_info(country_code, location, opencage_api_key):
+    opencage_url = f"https://api.opencagedata.com/geocode/v1/json?q={location}&countrycode={country_code}&key={opencage_api_key}"
+    response = requests.get(opencage_url)
+    return response.json()
+
+def is_valid_phone_number(phone_number):
+    # Basic validation to check if phone number includes a country code and is numeric
+    if phone_number.startswith('+') and phone_number[1:].isdigit():
+        return True
+    return False
+
+def open_in_maps(latitude, longitude):
+    choice = input("\033[1;91m[\033[1;33;40m*\033[0m\033[1;91m] \033[1;97m Would you like to open the location in Google Maps or Apple Maps? (Enter 'google' or 'apple'): \033[0m").strip().lower()
+    if choice == 'google':
+        webbrowser.open(f"https://www.google.com/maps/search/?api=1&query={latitude},{longitude}")
+    elif choice == 'apple':
+        webbrowser.open(f"https://maps.apple.com/?q={latitude},{longitude}")
+    else:
+        print("Invalid choice. Skipping map opening.")
+
+def phone_inf():
+    ipqualityscore_api_key, opencage_api_key, vonage_api_key, vonage_api_secret = get_api_keys()
+
+    while True:
+        print("")
+        phone_number = input("\033[1;91m[\033[1;33;40m+\033[0m\033[1;91m] \033[1;93m Enter the phone number (with country code, e.g., +1234567890): \033[0m").strip()
+        if is_valid_phone_number(phone_number):
+            break
+        else:
+            print("\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;97mPlease enter a valid phone number with country code.")
+
+    phone_info = get_phone_info(phone_number, ipqualityscore_api_key, vonage_api_key, vonage_api_secret)
+
+    if phone_info.get('valid', False):
+        print("")
+        print(f"\033[1;91m➤\033[1;97mPhone Number      : {phone_info.get('phone_number', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mCountry           : {phone_info.get('country', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mLocation          : {phone_info.get('location', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mCarrier           : {phone_info.get('carrier', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mLine Type         : {phone_info.get('line_type', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mRisk Score        : {phone_info.get('risk_score', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mSpammer           : {phone_info.get('spammer', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mActive            : {phone_info.get('active', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mRecent Abuse      : {phone_info.get('recent_abuse', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mFraud Score       : {phone_info.get('fraud_score', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mPorted            : {phone_info.get('ported', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mCaller Type       : {phone_info.get('caller_type', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mCaller Name       : {phone_info.get('caller_name', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mRoaming           : {phone_info.get('roaming', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mReachable         : {phone_info.get('reachable', 'N/A')}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mHandset Status    : {phone_info.get('handset_status', 'N/A')}")
+        print("")
+
+        if phone_info.get('country_code', False) and phone_info.get('location', False):
+            location_info = get_location_info(phone_info['country_code'], phone_info['location'], opencage_api_key)
+            if location_info['results']:
+                location = location_info['results'][0]['geometry']
+                latitude = location['lat']
+                longitude = location['lng']
+                print(f"Latitude: {latitude}, Longitude: {longitude}")
+                
+                # Ask the user if they want to open the location in maps
+                open_in_maps(latitude, longitude)
+            else:
+                print("Could not find location information.")
+    else:
+        print("Invalid phone number or failed to retrieve phone number information.")
+
+
+####Second Method for Phone Number
+def find_api_keys():
+    if os.path.exists('numandcage_keys.txt'):
+        with open('numandcage_keys.txt', 'r') as file:
+            keys = file.readlines()
+            if len(keys) == 2:
+                numverify_api_key = keys[0].strip()
+                opencage_api_key = keys[1].strip()
+            else:
+                numverify_api_key, opencage_api_key = find_and_save_keys()
+    else:
+        numverify_api_key, opencage_api_key = find_and_save_keys()
+    
+    return numverify_api_key, opencage_api_key
+
+def find_and_save_keys():
+    while True:
+        numverify_api_key = input("\033[1;91m[\033[1;33;40m+\033[0m\033[1;91m] \033[1;93m Enter your Numverify API key: \033[0m").strip()
+        opencage_api_key = input("\033[1;91m[\033[1;33;40m+\033[0m\033[1;91m] \033[1;93m Enter your OpenCage API key: \033[0m").strip()
+        if numverify_api_key and opencage_api_key:
+            with open('numandcage_keys.txt', 'w') as file:
+                file.write(f"{numverify_api_key}\n{opencage_api_key}")
+            return numverify_api_key, opencage_api_key
+        else:
+            print("\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mPlease enter valid API keys.")
+
+def find_phone_info(phone_number, numverify_api_key):
+    numverify_url = f"http://apilayer.net/api/validate?access_key={numverify_api_key}&number={phone_number}"
+    response = requests.get(numverify_url)
+    return response.json()
+
+def find_location_info(country_code, location, opencage_api_key):
+    opencage_url = f"https://api.opencagedata.com/geocode/v1/json?q={location}&countrycode={country_code}&key={opencage_api_key}"
+    response = requests.get(opencage_url)
+    return response.json()
+
+def phone_inf2():
+    numverify_api_key, opencage_api_key = find_api_keys()
+    
+    phone_number = input("\033[1;97m[+]\033[0m\033[1;91m  Enter the phone number: \033[0m")
+    print("")
+    phone_info = find_phone_info(phone_number, numverify_api_key)
+
+    if phone_info['valid']:
+        print(f"\033[1;91m➤\033[1;97mPhone Number    : {phone_info['international_format']}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mCountry         : {phone_info['country_name']}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97m Valid          : {phone_info['valid']}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mLocation        : {phone_info['location']}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mCarrier         : {phone_info['carrier']}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mLine Type       : {phone_info['line_type']}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mCountry Prefix  : {phone_info['country_prefix']}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mLocal format    : {phone_info['local_format']}")
+        print("")
+        print(f"\033[1;91m➤\033[1;97mCountry Code    : {phone_info['country_code']}")
+        print("")
+        
+        location_info = find_location_info(phone_info['country_code'], phone_info['location'], opencage_api_key)
+        if location_info['results']:
+            location = location_info['results'][0]['geometry']
+            print(f"Latitude: {location['lat']}, Longitude: {location['lng']}")
+        else:
+            print("Could not find location information.")
+    else:
+        print("Invalid phone number.")
+
+
+
+RED = "\033[91m"
+GREEN = "\033[92m"
+BLUE = "\033[94m"
+WHITE = "\033[0;37m"
+
+class bcolors:
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    BOLD = '\033[1m'
+    ENDC = '\033[0m'
+
+class colors:
+    CRED2 = "\33[91m"
+    CBLUE2 = "\33[94m"
+    ENDC = "\033[0m"
+
+now = datetime.now()
+current_time = now.strftime("%H:%M:%S")
+
+
+tookie_banner = ("""\033[32m
+                 ,,,,,                                    
+                 ╓▄▓▓▓███████████▓▓▓▄╥                            
+             ▄▓███▓▀╨╙└         └╙╙▀▓███▌▄                        
+          ▄▓██▓╨─       ,▄▄▄▌▓▓▌▌▄▄╥,  ╙▀██▓▄                     
+        Φ██▓╨  ╔   ╓▄▓▓▀▀╙├,,,,,,,├╙▀█▓▄  ╙▓██▌                   
+      ▄██▓└     ╓▓██▄,=░░░░░░░░░░░░░░»└▓█─  └▓██▄                 
+    ,▓██╨  æ   ╓▓█▀┤░░░▒▒▄╣╣▓╣╣▒▒▒▒▒░░▄▓██▄   ╙██▓                
+   ╒███      ,▓█╬░░░░░░╫▓██▀▀▀██▓╬╠╠╫██└ ╙██⌐  ^███               
+   ███  ╓   ╔█▓╟╣╬░░░▒╫▓█╜]▄╫█▄╫█▓╬▓█▀     ▓█─   ███              
+  ▓██      ▐████╬░░░╚╙╠╫█Q'╝█▓┌╫█▓██▄░      █▌   ╚██▌             
+ ]██▌  φ─  ▀▓█▓▒▒▄╠▒»,╔▒╬██▓▌▓██▓█▌╙▓▓▌▄▄░  █▌    ███             
+ ╫██Γ       ██╠▓▓▓▒▒▒▒   ▒▒╬╬╩▒╫▓█▌   ╓▓██▒╫█⌐    ▓██             
+ ╫██µ      ╫█▓███▒▒▒▒▒▒▒▒▒▒╣╬▒▒╠▓██▓▓██▀ ███╙ ╙▀  ╫██             
+ ╟██▄  "   ▀███╬▓██▒▒▒▓▒▒▒▒╩▓▓▓▄╠▓████▌  ▀╙   ⁿ   ███             
+  ███  ~   .██╬▓█▓████▒▒▒▒▒▒▒╣▓█████████,    ªÆ  ]██▓             
+  ▓██▄  ,  ╫█████▓╬▓██▒▒▓▓▒▒▒▓▒╠╬▀▓▓▓████µ  ╓µ   ███              
+   ███▄ └` ▄███▓███████████▓▓█▓▒▒▒▓▌▒▒███┴      ▓██▀              
+    ███▄  ╟███████▓╬█▓╬╬╣████▓██▓▓████████µ   ,███▀               
+     ▀███┬▐███████████▓▓███████████▓█▓▓███   ▄███Γ                
+      └██████▓▓███████████████▓██▓▓███████▒▄███▀                  
+        └▓███████▓▓▓██▓▓████▓▓███████████████▀                    
+           ▀██████████████████████████████▀╙                      
+              ╙▀██████████████████████▀▀─                         
+                   ╙╙▀▀▓███████▀▀▀╙└                              
+                                
+             \033[0m""")
+
+
+banner = ("""\033[38;5;208m
+▒██   ██▒ ▒█████    ██████  ██▓ ███▄    █ ▄▄▄█████▓
+▒▒ █ █ ▒░▒██▒  ██▒▒██    ▒ ▓██▒ ██ ▀█   █ ▓  ██▒ ▓▒
+░░  █   ░▒██░  ██▒░ ▓██▄   ▒██▒▓██  ▀█ ██▒▒ ▓██░ ▒░
+ ░ █ █ ▒ ▒██   ██░  ▒   ██▒░██░▓██▒  ▐▌██▒░ ▓██▓ ░ 
+▒██▒ ▒██▒░ ████▓▒░▒██████▒▒░██░▒██░   ▓██░  ▒██▒ ░ 
+▒▒ ░ ░▓ ░░ ▒░▒░▒░ ▒ ▒▓▒ ▒ ░░▓  ░ ▒░   ▒ ▒   ▒ ░░   
+░░   ░▒ ░  ░ ▒ ▒░ ░ ░▒  ░ ░ ▒ ░░ ░░   ░ ▒░    ░    
+ ░    ░  ░ ░ ░ ▒  ░  ░  ░   ▒ ░   ░   ░ ░   ░      
+ ░    ░      ░ ░        ░   ░           ░          
+   \033[1;37mAn Open Source Intelligence Framework                          
+        Created by: AnonyminHack5
+        Team: TermuxHackz Society\033[0m
+        	Version: \033[1;92m2.3\033[0m
+	   \033[1;97mPlatform: \033[0m\033[1;96m""" + platform.system())
+
+for col in banner:
+    print(colors.CRED2 + col, end="")
+    sys.stdout.flush()
+    time.sleep(0.0025)
+
+
+main_menu = ("""
+	\033[1;91m[??] Choose an option:
+	\033[1;91m[\033[1;33;40m1\033[0m\033[1;91m] \033[1;97m IP Address Info
+	\033[1;91m[\033[1;33;40m2\033[0m\033[1;91m] \033[1;97m Email Address Info
+	\033[1;91m[\033[1;33;40m3\033[0m\033[1;91m] \033[1;97m Extract Location from Image
+	\033[1;91m[\033[1;33;40m4\033[0m\033[1;91m] \033[1;97m Host Search
+	\033[1;91m[\033[1;33;40m5\033[0m\033[1;91m] \033[1;97m Ports
+	\033[1;91m[\033[1;33;40m6\033[0m\033[1;91m] \033[1;97m Exploit CVE
+	\033[1;91m[\033[1;33;40m7\033[0m\033[1;91m] \033[1;97m Exploit O.S.V.D           
+	\033[1;91m[\033[1;33;40m8\033[0m\033[1;91m] \033[1;97m DNS Lookup
+	\033[1;91m[\033[1;33;40m9\033[0m\033[1;91m] \033[1;97m DNS Reverse
+        \033[1;91m[\033[1;33;40m10\033[0m\033[1;91m] \033[1;97mEmail Finder               \033[1;91m[\033[1;33;40m101\033[0m\033[1;91m] \033[1;97mWhat's New?
+        \033[1;91m[\033[1;33;40m11\033[0m\033[1;91m] \033[1;97mMetadata Extraction\033[1;91m[\033[1;92mNEW\033[0m\033[1;91m]
+        \033[1;91m[\033[1;33;40m12\033[0m\033[1;91m]\033[1;97m Check Twitter Status
+        \033[1;91m[\033[1;33;40m13\033[0m\033[1;91m]\033[1;97m Subdomain Enumeration
+        \033[1;91m[\033[1;33;40m14\033[0m\033[1;91m]\033[1;97m Google Dork Hacking
+        \033[1;91m[\033[1;33;40m15\033[0m\033[1;91m]\033[1;97m SMTP Analysis
+        \033[1;91m[\033[1;33;40m16\033[0m\033[1;91m]\033[1;97m Check Global InfoStealer Attack
+        \033[1;91m[\033[1;33;40m17\033[0m\033[1;91m]\033[1;97m Dark Web Search
+        \033[1;91m[\033[1;33;40m18\033[0m\033[1;91m]\033[38;5;208m Next Tools >
+        \033[1;91m[\033[1;33;40m19\033[0m\033[1;91m]\033[1;97m Report bugs
+	\033[1;91m[\033[1;33;40m99\033[0m\033[1;91m]\033[1;97m Update X-osint
+	\033[1;91m[\033[1;33;40m100\033[0m\033[1;91m]\033[1;97m About
+	\033[1;91m[\033[1;33;40m00\033[0m\033[1;91m]\033[1;97m Quit
+	
+	""")
+
+
+about = """\033[1;90m
+This is an osint tool which gathers useful and yet credible valid information about a phone number, user email address and ip address, \nVIN, Protonmail account and so much more, X-osint is an Open source intelligence framework, \nfeel free to clone this repo, if you have features you would like to add or any fixes please open an issue or create a merge
+\033[0m"""
+def traceip():
+	targetip = input("\033[1;91mEnter IP Address: \033[0m")
+	r = requests.get("http://ip-api.com/json/" + targetip)
+	print("\n\033[1;91m[*]\033[1;97m IP detail is given down below\n")
+	#print()
+	sleep(0.1)
+	print("\033[1;92m \033[1;91m➤\033[1;97m Status Code    : " + str(r.status_code))
+	sleep(0.1)
+	if str(r.json() ['status']) == 'success':
+		print(" \033[1;91m➤\033[1;97m Status         :\033[1;92m " + str(r.json() ['status']))
+		sleep(0.1)
+	elif str(r.json() ['status']) == 'fail':
+		print(" \033[1;91m➤\033[1;97m Status         :\033[1;97m " + str(r.json() ['status']) + '\033[1;92m')
+		sleep(0.1)
+		print(" \033[1;91m➤\033[1;97m Message        : " + str(r.json() ['message']))
+		sleep(0.1)
+		if str(r.json() ['message']) == 'invalid query':
+			print('\n\033[1;91m[!] \033[1;97m' + targetip + ' is an invalid IP Address, So you can try another IP Address.\n')
+			exit()
+		elif str(r.json() ['message']) == 'private range':
+			print('\n\033[1;91m[!] \033[1;97m' + targetip + ' is a private IP Address, So This IP can not be traced.\n')
+			exit()
+		elif str(r.json() ['message']) == 'reserved range':
+			print('\n\033[1;91m[!] \033[1;97m' + targetip + ' is a reserved IP Address, So This IP can not be traced.\n')
+			exit()
+		else:
+			print('\nCheck your internet connection.\n')
+			exit()
+	print("\033[1;92m \033[1;91m➤\033[1;97m Target IP      : " + str(r.json() ['query'] ))
+	sleep(0.1)
+	print("\033[1;92m \033[1;91m➤\033[1;97m Country:	: " + str(r.json() ['country'] ))
+	sleep(0.1)
+	print(" \033[1;92m\033[1;97m➤\033[1;97m Country Code    : " + str(r.json() ['countryCode']))
+	sleep(0.1)
+	print(" \033[1;92m\033[1;97m➤\033[1;97m City   	: " + str(r.json() ['city']))
+	sleep(0.1)
+	print(" \033[1;92m\033[1;97m➤\033[1;97m Timezone    	: " + str(r.json() ['timezone']))
+	sleep(0.1)
+	print(" \033[1;91m➤\033[1;97m Region Name    : " + str(r.json() ['regionName'] ))
+	sleep(0.1)
+	print(" \033[1;91m➤\033[1;97m Region         : " + str(r.json() ['region'] ))
+	sleep(0.1)
+	print(" \033[1;91m➤\033[1;97m ZIP Code       : " + str(r.json() ['zip'] ))
+	sleep(0.1)
+	print(" \033[1;91m➤\033[1;97m Latitude       : " + str(r.json() ['lat'] ))
+	sleep(0.1)
+	print(" \033[1;91m➤\033[1;97m Longitude      : " + str(r.json() ['lon'] ))
+	sleep(0.1)
+	print(" \033[1;91m➤\033[1;97m ISP            : " + str(r.json() ['isp'] ))
+	sleep(0.1)
+	print(" \033[1;91m➤\033[1;97m Organization   : " + str(r.json() ['org'] ))
+	sleep(0.1)
+	print(" \033[1;91m➤\033[1;97m AS             : " + str(r.json() ['as'] ))
+	sleep(0.1)
+	print(" \033[1;91m➤\033[1;97m Location       : " + str(r.json() ['lat']) + ',' + str(r.json() ['lon']))
+	sleep(0.1)
+	print(" \033[1;91m➤\033[1;97m Google Map     : \033[1;94mhttps://maps.google.com/?q=" + str(r.json() ['lat']) + ',' + str(r.json() ['lon']))
+	sleep(0.1)
+	print()
+	mapaddress = input("\033[1;91m[*]\033[1;97m Press ENTER To Open Location on Google maps or press any other key to quit: ")
+	if mapaddress == "":
+		print()
+		print("[*] Opening Location on google map")
+		print()
+		os.system("xdg-open https://maps.google.com/?q=" + str(r.json() ['lat']) + ',' + str(r.json() ['lon']) + " > /dev/null 2>&1")
+		print()
+	else:
+		print()
+		print("[*] Aborting.....")
+		print()
+
+##Payment Support 
+stripe.api_key = os.environ.get("STRIPE_API_KEY", "")
+
+def create_checkout_session():
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',  # Fixed currency
+                    'product_data': {
+                        'name': 'Support Script',
+                    },
+                    'unit_amount': 500,  # Amount in cents ($5.00)
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url='http://127.0.0.1:5000/success',
+            cancel_url='http://127.0.0.1:5000/cancel',
+        )
+        return session.url
+    except stripe.error.StripeError as e:
+        print(e)
+        return None
+
+def open_browser():
+    session_url = create_checkout_session()
+    if session_url:
+        webbrowser.open(session_url)
+    root.quit()
+
+def close_popup():
+    popup_window.destroy()
+    root.quit()
+
+def show_support_popup():
+    global root, popup_window
+    root.withdraw()  # Hide the root window
+    popup_window = tk.Toplevel()
+    popup_window.title("Support Script")
+
+    label = tk.Label(popup_window, text="Would you like to pay to support this script?, \nThis is to ensure X-osint works well, and if it doesnt its because you didnt support the tool \n\n Payments are secured and encrypted through Stripe")
+    label.pack(pady=10)
+
+    yes_button = tk.Button(popup_window, text="Yes", command=open_browser)
+    yes_button.pack(side=tk.LEFT, padx=10)
+
+    no_button = tk.Button(popup_window, text="No", command=close_popup)
+    no_button.pack(side=tk.RIGHT, padx=10)
+
+    root.mainloop()
+
+###email address information gathering
+def email_info():
+	mailid = input("\033[1;91mEnter email address: \033[1;94m")
+	if not re.match(r"[^@]+@[^@]+\.[^@]+", mailid):
+		print("Please input a valid Email Address!")
+		return
+	eml = requests.get("https://ipqualityscore.com/api/json/email/lPnx5AhAUv4jgIFDXquYpe8CVBjmaTii/" + mailid)
+	if str(eml.json()['success']) == "False":
+		print(eml.json()['message'])
+		return
+	print()
+	sleep(1)
+	print()
+	print("\033[1;91m[~]\033[1;97m E-mail Details are given down below")
+	print()
+	print("\033[1;91m➤\033[1;97m Target E-mail       : " + str(mailid) )
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Status Code         : " + str(eml.status_code) )
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Valid               : " + str(eml.json() ['valid']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Catch All           : " + str(eml.json() ['catch_all']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Common              : " + str(eml.json() ['common']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Deliverability      : " + str(eml.json() ['deliverability']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Disposable          : " + str(eml.json() ['disposable']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m DNS Valid           : " + str(eml.json() ['dns_valid']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Fraud Score         : " + str(eml.json() ['fraud_score']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Frequent Complainer : " + str(eml.json() ['frequent_complainer']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Generic             : " + str(eml.json() ['generic']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Honeypot            : " + str(eml.json() ['honeypot']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Leaked              : " + str(eml.json() ['leaked']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Message             : " + str(eml.json() ['message']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Over All Score      : " + str(eml.json() ['overall_score']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Recent Abuse        : " + str(eml.json() ['recent_abuse']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Request ID          : " + str(eml.json() ['request_id']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Sanitized E-mail    : " + str(eml.json() ['sanitized_email']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m SMTP Score          : " + str(eml.json() ['smtp_score']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Spam Trap Score     : " + str(eml.json() ['spam_trap_score']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Success             : " + str(eml.json() ['success']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Suggested Domain    : " + str(eml.json() ['suggested_domain']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Suspect             : " + str(eml.json() ['suspect']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Timed Out           : " + str(eml.json() ['timed_out']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m First Name          : " + str(eml.json() ['first_name']))
+	sleep(0.1)
+	print()
+	print("\033[1;91m[~]\033[1;94m Domain Age")
+	print()
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Human      : " + str(eml.json() ['domain_age'] ['human']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m ISO        : " + str(eml.json() ['domain_age'] ['iso']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Time Stamp : " + str(eml.json() ['domain_age'] ['timestamp']))
+	sleep(0.1)
+	print()
+	print("\033[1;91m[~]\033[1;94m First Seen")
+	print()
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Human      : " + str(eml.json() ['first_seen'] ['human']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m ISO        : " + str(eml.json() ['first_seen'] ['iso']))
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Time Stamp : " + str(eml.json() ['first_seen'] ['timestamp']))
+	sleep(0.1)
+	print()
+ 
+ ### Phone number info
+def get_decimal_from_dms(dms, ref):
+    degrees = dms[0][0] / dms[0][1]
+    minutes = dms[1][0] / dms[1][1] / 60.0
+    seconds = dms[2][0] / dms[2][1] / 3600.0
+
+    decimal = degrees + minutes + seconds
+    if ref == "S" or ref == "W":
+        decimal = -decimal
+    return decimal
+
+def extract_gps_info(image_path):
+    if not os.path.exists(image_path):
+        print(f"The file {image_path} does not exist.")
+        return None
+
+    img = Image.open(image_path)
+    exif_data = piexif.load(img.info['exif'])
+
+    gps_data = exif_data.get("GPS", None)
+    if not gps_data:
+        print("No GPS information found in the image...sorry, try another hehe")
+        return None
+
+    gps_latitude = gps_data.get(piexif.GPSIFD.GPSLatitude)
+    gps_latitude_ref = gps_data.get(piexif.GPSIFD.GPSLatitudeRef).decode()
+    gps_longitude = gps_data.get(piexif.GPSIFD.GPSLongitude)
+    gps_longitude_ref = gps_data.get(piexif.GPSIFD.GPSLongitudeRef).decode()
+
+    if not all([gps_latitude, gps_latitude_ref, gps_longitude, gps_longitude_ref]):
+        print("Incomplete GPS information found in the image.")
+        return None
+
+    lat = get_decimal_from_dms(gps_latitude, gps_latitude_ref)
+    lon = get_decimal_from_dms(gps_longitude, gps_longitude_ref)
+
+    return lat, lon
+
+def open_map(lat, lon):
+    map_url = f"https://www.google.com/maps?q={lat},{lon}"
+    webbrowser.open(map_url)
+    print(f"Opened map at {lat}, {lon}")
+
+
+
+#### Update script
+def update():
+	os.system("clear")
+	print(banner)
+	print()
+	print("\033[1;91m➤\033[1;97m Searching for updates...-> \033[0m\033[1;94mFound")
+	sleep(0.1)
+	print("\033[1;91m➤\033[1;97m Updating.. \033[0m")
+	sleep(0.1)
+	print()
+	print()
+	print("\033[1;91m\tSelect your terminal for update \033[0m\n")
+	print("\033[1;91m\t[!] PLEASE MAKE SURE YOU CHOOSE CORRECTLY [!] \033[0m\n\n")
+	print("\033[1;34m\t\t[\033[0m\033[1;77m1\033[0m\033[1;34m]\033[0m\033[1;93mTermux\033[0m")
+	print("\033[1;34m\t\t[\033[0m\033[1;77m2\033[0m\033[1;34m]\033[0m\033[1;93mLinux\033[0m\n")
+	update_terminal = input("\033[1;94mChoose: \033[0m")
+	
+	if update_terminal == "1":
+		print("\033[1;97m[+] Updating for termux......\033[0m")
+		print()
+		sleep(0.1)
+		os.system("cd $HOME")
+		os.system("cd $PREFIX/bin && rm xosint")
+		print("\033[1;97m[+] Validating installation....\033[0m\n")
+		sleep(0.1)
+		path_to_file = '/$PREFIX/bin/xosint'
+		path = Path(path_to_file)
+		if path.is_file():
+			print(f'The file {path_to_file} exists, Validation failed, Kindly update manually')
+			time.sleep(1)
+			exit()
+		else:
+			print(f'The file {path_to_file} doesnt exists, Validation Successful')
+			time.sleep(0.5)
+			print("\033[1;91m[!]\033[0m\033[1;97mAutomatic update Completed\0330m\n")
+			time.sleep(0.9)
+			os.system("cd $HOME")
+			os.system("git clone https://github.com/TermuxHackz/X-osint")
+			print("\033[1;97m[+] Granting permissions.....\033[0m\n")
+			os.system("cd $HOME && cd X-osint")
+			os.system("chmod +x *")
+			sleep(0.5)
+			print("\033[1;97m[+] Preparing Setup file.....\033[0m\n")
+			sleep(0.5)
+			print("\033[1;97m[+] Setup file ready!!.....Starting in 2s...\033[0m\n")
+			print("\033[1;97m[+] Update completed.....\033[0m\n")
+			sleep(2)
+			os.system("cd $HOME ")
+			os.system("cd X-osint && bash setup.sh")
+
+			
+
+	elif update_terminal == "2":
+		print("\033[1;97m[+] Updating for linux......\033[0m")
+		print()
+		sleep(0.1)
+		os.system("cd $HOME")
+		os.system("cd /usr/local/bin && sudo rm xosint")
+		print("\033[1;97m[+] Validating installation....\033[0m\n")
+		sleep(0.5)
+		path_to_file = '/usr/local/bin/xosint'
+		path = Path(path_to_file)
+		if path.is_file():
+			print(f'The file {path_to_file} exists, Validation failed, Kindly update manually')
+			time.sleep(1)
+			exit()
+		else:
+			os.system("cd $HOME")
+			os.system("git clone https://github.com/TermuxHackz/X-osint")
+			print("")
+			print("\033[1;97m[+] Granting permissions.....\033[0m\n")
+			os.system("cd X-osint")
+			os.system("sudo chmod +x *")
+			sleep(0.5)
+			print("\033[1;97m[+] Preparing Setup file.....\033[0m\n")
+			sleep(0.5)
+			print("\033[1;97m[+] Setup file ready!!.....Starting in 2s...\033[0m\n")
+			print("\033[1;97m[+] Update completed.....\033[0m\n")
+			sleep(2)
+			os.system("cd $HOME")
+			os.system("cd X-osint && bash setup.sh")
+	else:
+		print("Invalid input....KINDLY UPDATE...quiting..")
+		sleep(0.5)
+		exit
+		
+#### Start main script
+###maincode
+### 4, 5, 6, 7
+os.system("clear")
+##global root
+##root = tk.Tk()
+##root.withdraw() 
+
+##Fetchupdate
+##update_script() ####----->ENABLE THIS 
+
+##show_support_popup() --> ENABLE THIS
+##DIsclaimerstart
+check_disclaimer()
+
+print(banner)
+print(main_menu)
+option = input("\033[38;5;208mxosint>> \033[1;97m") 
+if option == "1":
+	traceip()
+elif option == "2":
+	email_info()
+elif option == "3":
+    def main():
+        image_path = input("Enter the path to the image: ").strip()
+        location = extract_gps_info(image_path)
+        if location:
+            print("\033[1;91m[+]\033[0m\033[1;97mMaps Location wil be opened in 3secs.. \033[0m")
+            time.sleep(3)
+            open_map(*location)
+    main()
+	
+elif option == "4":
+	def shodan_host():
+		if os.path.exists("./api.txt") and os.path.getsize("./api.txt") > 0:
+			with open('api.txt', 'r') as file:
+				shodan_api=file.readline().rstrip('\n')
+		else:
+			file = open('api.txt', 'w')
+			shodan_api = input("[+] Please enter a valid Shodan API key (Shodan.io): ")
+			file.write(shodan_api)
+			print("[+] File written: ./api.txt")
+			file.close()
+		host_ip = input("\033[1;91m[+]\033[0m\033[1;97mShodan Host Search (IP): \033[0m")
+		url = "https://api.shodan.io/shodan/host/"+ host_ip +"?key=" + shodan_api
+		request = requests.get(url)
+		txt = request.text
+		parsed = json.loads(txt)
+		print(json.dumps(parsed, indent=2, sort_keys=True))
+	shodan_host()
+elif option == "5":
+	def shodan_ports():
+		if os.path.exists("./api.txt") and os.path.getsize("./api.txt") > 0:
+			with open('api.txt', 'r') as file:
+				shodan_api=file.readline().rstrip('\n')
+		else:
+			file = open('api.txt', 'w')
+			shodan_api = input("[+] Please enter a valid Shodan API key (Shodan.io): ")
+			file.write(shodan_api)
+			print("[+] File written: ./api.txt")
+			file.close()
+		url = "https://api.shodan.io/shodan/ports?key=" + shodan_api
+		request = requests.get(url)
+		txt = request.text
+		parsed = json.loads(txt)
+		print(json.dumps(parsed, indent=2, sort_keys=True))
+	shodan_ports()
+elif option == "6":
+	def shodan_exploit_cve():
+		if os.path.exists("./api.txt") and os.path.getsize("./api.txt") > 0:
+			with open('api.txt', 'r') as file:
+				shodan_api=file.readline().rstrip('\n')
+		else:
+			file = open('api.txt', 'w')
+			shodan_api = input("[+] Please enter a valid Shodan API key (Shodan.io): ")
+			file.write(shodan_api)
+			print("[+] File written: ./api.txt")
+			file.close()
+		exploit_cve = input("\033[1;91m[+]\033[0m\033[1;97mExploit CVE: \033[0m")
+		url = "https://exploits.shodan.io/api/search?query="+ "cve:" + exploit_cve +"&key=" + shodan_api
+		request = requests.get(url)
+		txt = request.text
+		parsed = json.loads(txt)
+		print(json.dumps(parsed, indent=2, sort_keys=True))
+	shodan_exploit_cve()
+elif option == "7":
+	def shodan_exploit_osvdb():
+		if os.path.exists("./api.txt") and os.path.getsize("./api.txt") > 0:
+			with open('api.txt', 'r') as file:
+				shodan_api=file.readline().rstrip('\n')
+		else:
+			file = open('api.txt', 'w')
+			shodan_api = input("[+] Please enter a valid Shodan API key (Shodan.io): ")
+			file.write(shodan_api)
+			print("[+] File written: ./api.txt")
+			file.close()
+		exploit_osvdb = input("\033[1;91m[+]\033[0m\033[1;97mExploit Open Source Vulnerability Database: \033[0m")
+		url = "https://exploits.shodan.io/api/search?query="+ "osvdb:" + exploit_osvdb +"&key=" + shodan_api
+		request = requests.get(url)
+		txt = request.text
+		parsed = json.loads(txt)
+		print(json.dumps(parsed, indent=2, sort_keys=True))
+	shodan_exploit_osvdb()
+	
+elif option == "8":
+	def shodan_dns_lookup():
+		if os.path.exists("./api.txt") and os.path.getsize("./api.txt") > 0:
+			with open('api.txt', 'r') as file:
+				shodan_api=file.readline().rstrip('\n')
+		else:
+			file = open('api.txt', 'w')
+			shodan_api = input("[+] Please enter a valid Shodan API key (Shodan.io): ")
+			file.write(shodan_api)
+			print("[+] File written: ./api.txt")
+			file.close()
+		hostnames = input("\033[1;91m[+]\033[0m\033[1;97mDNS Lookup: \033[0m")
+		url = "https://api.shodan.io/dns/resolve?hostnames="+ hostnames +"&key=" + shodan_api
+		request = requests.get(url)
+		txt = request.text
+		parsed = json.loads(txt)
+		print(json.dumps(parsed, indent=2, sort_keys=True))
+	shodan_dns_lookup()
+	
+elif option == "9":
+	def shodan_dns_reverse():
+		if os.path.exists("./api.txt") and os.path.getsize("./api.txt") > 0:
+			with open('api.txt', 'r') as file:
+				shodan_api=file.readline().rstrip('\n')
+		else:
+			file = open('api.txt', 'w')
+			shodan_api = input("[+] Please enter a valid Shodan API key (Shodan.io): ")
+			file.write(shodan_api)
+			print("[+] File written: ./api.txt")
+			file.close()
+		ips = input("\033[1;91m[+]\033[0m\033[1;97mDNS Reverse: \033[0m")
+		url = "https://api.shodan.io/dns/reverse?ips="+ ips +"&key=" + shodan_api
+		request = requests.get(url)
+		txt = request.text
+		parsed = json.loads(txt)
+		print(json.dumps(parsed, indent=2, sort_keys=True))
+	shodan_dns_reverse()
+
+elif option == "10":
+	def hunter_email_finder():
+		email_domain = input("\033[1;91m[+]\033[0m\033[1;97mDomain: \033[0m")
+		first_name = input("\033[1;91m[+]\033[0m\033[1;97mFirst Name: \033[0m")
+		last_name = input("\033[1;91m[+]\033[0m\033[1;97mLast Name: \033[0m")
+		url = "https://api.hunter.io/v2/email-finder?domain="+ email_domain + "&first_name=" + first_name +"&last_name=" + last_name +"&api_key=" + hunter_api
+		request = requests.get(url)
+		txt = request.text
+		parsed = json.loads(txt)
+		print(json.dumps(parsed, indent=2, sort_keys=True))
+
+	if os.path.exists("./hunter_io_api.txt") and os.path.getsize("./hunter_io_api.txt") > 0:
+		with open('hunter_io_api.txt', 'r') as file:
+			hunter_api=file.readline().rstrip('\n')
+	else:
+		file = open('hunter_io_api', 'w')
+		hunter_api = input("[+] Please enter a valid Hunter API key to continue (Get from Hunter.io): ")
+		file.write(hunter_api)
+		print("[+] File written: ./hunter_io_api.txt")
+		file.close()
+		hunter_email_finder()
+
+	def hunter_email_finder():
+		email_domain = input("\033[1;91m[+]\033[0m\033[1;97mDomain: \033[0m")
+		first_name = input("\033[1;91m[+]\033[0m\033[1;97mFirst Name: \033[0m")
+		last_name = input("\033[1;91m[+]\033[0m\033[1;97mLast Name: \033[0m")
+		url = "https://api.hunter.io/v2/email-finder?domain="+ email_domain + "&first_name=" + first_name +"&last_name=" + last_name +"&api_key=" + hunter_api
+		request = requests.get(url)
+		txt = request.text
+		parsed = json.loads(txt)
+		print(json.dumps(parsed, indent=2, sort_keys=True))
+
+elif option == "11":
+    file_path = input("\033[1;91m[+]\033[0m\033[1;97m Enter the path of any file: \033[0m")
+    if not os.path.isfile(file_path):
+        print("{RED}Error:{RESET} The file does not exist. Please check the path and try again.")
+    else:
+        metadata = extract_metadata(file_path)
+        if metadata:
+            print(f"\n{GREEN}Extracting all metadata for {file_path}...{RESET}\n")
+            print_all_metadata(metadata)
+
+            print(f"\n{GREEN}Extracting specific metadata for {file_path}...{RESET}\n")
+            specific_metadata = extract_specific_metadata(metadata)
+            print_specific_metadata(specific_metadata)
+
+            if specific_metadata.get("Location"):
+                lat, lon = specific_metadata["Location"]
+                print(f"\n{GREEN}Geolocation data found: Latitude = {lat}, Longitude = {lon}{RESET}")
+                open_map_location(lat, lon)
+            else:
+                print(f"\n{YELLOW}No geolocation data found. \n{GREEN}Use option 3 from X-osint menu to retry getting the location if its an image file you attached{RESET}")
+        else:
+            print(f"{RED}No metadata could be extracted from the file.{RESET}")
+		
+elif option == "12":
+	email_add = input("\033[1;91m[+]\033[0m\033[1;97mEnter email: \033[0m")
+	url = "https://api.twitter.com/i/users/email_available.json?email=" + email_add 
+	request = requests.get(url)
+	txt = request.text
+	parsed = json.loads(txt)
+	print(json.dumps(parsed, indent=2, sort_keys=True))
+			
+elif option == "13":
+	import resolver
+	import threading
+
+	domain = input("\033[1;91m[+]\033[0m\033[1;97mEnter domain name (without www): \033[0m")
+	file_path = input("\033[1;91m[+]\033[0m\033[1;97mPath of subdomains lists (Get from my github): \033[0m")
+	
+	def check_host(self, host):
+		is_valid = False
+		Resolver = dns.resolver.Resolver()
+		Resolver.nameservers = ['1.1.1.1', '1.0.0.1']
+		self.lock.acquire()
+		try:
+			ip = Resolver.query(host, 'A')[0].to_text()
+			if ip:
+				if self.verbose:
+					self_print_("%s%: %s%" % (R, self.engine_name, W, host))
+					is_valid = True
+					self.live_subdomains.append(host)
+		except:
+			pass
+			self.lock.release()
+			return is_valid
+	sub_list = open(file_path).read()
+	subs = sub_list.splitlines()
+	
+	for sub in subs:
+		domain = f"http://{sub}.{domain}"
+		
+		try:
+			requests.get(domain)
+		except requests.ConnectionError:
+			pass
+		else:
+			print("\033[1;94m[+]\033[0m Valid Subdomain: ",domain)
+	def domain(self):
+		sleep(0.2)
+	def __domain__(self):
+		t.threading.Thread(target=self.domain)
+		t.start()
+#### Google Dorking Hacking 
+
+elif option == "14":
+		try:
+			## print_formatted_text(HTML('<b><u>;GOOGLE DORK HACKING </u></b>')) 
+			dork = input('\033[1;91m\n[+]\033[0m\033[1;97mEnter The Dork Search Query (eg: intext:"Index of /" +passwd): \033[0m')
+			amount = input("\033[1;91m[+]\033[0m\033[1;97mEnter The Number Of sites To dork (eg: 4): \033[0m")
+			print ("\n ")
+			
+			requ = 0
+			counter = 0
+			
+			for results in search(dork, tld="com", lang="en", num=int(amount), start=0, stop=None, pause=2):
+				counter = counter + 1
+				print ("[+] ", counter, results)
+				time.sleep(0.1)
+				requ += 1
+				if requ >= int(amount):
+					break
+				data = (counter, results)
+				time.sleep(0.1)
+				print("\n")
+			file = input('\033[1;91m[!]\033[0m\033[1;94mEnter name to save output as (eg: output.txt): \033[0m')
+			original_stdout = sys.stdout
+			try:
+				with open(file, 'w') as f:
+					sys.stdout = f
+					print(data)
+					print("\n")
+					sys.stdout = original_stdout
+					print("\033[1;97m[+]\033[0mFile has been saved as \033[0m" + file)
+			except:
+				print("\033[1;91m[!]Please enter a name to save the file as [!]\033[0m")
+				sys.exit(1)
+
+		except KeyboardInterrupt:
+			print ("\n")
+			print ("\033[1;91m[!] User Interruption Detected..!\033[0")
+			time.sleep(0.5)
+			print ("[•] Done... Exiting...")
+			sys.exit(1)
+			
+elif option == "19":
+	print("\033[1;91m[+]\033[1;97m Kindly take a screenshot or screenrecord of the error faced and mail them \nto me and i would give you feedback based on those bugs you have \nreported to me and fix them, Thank you \033[0m")
+	print("")
+	try:
+		report = input('\033[1;95mReport bug (y/n): \033[0m')
+		if report == "y":
+			try:
+				import webbrowser
+				webbrowser.open('mailto:?to=AnonyminHack5@protonmail.com&subject=X-osint-bugs', new=1)
+			except ImportError:
+				print("\033[1;91m[!] Webbrowser module not found!!, Install using \033[0m\033[1;97mpip install webbrowser\033[0m")
+				print("[+] Try reporting bugs again ")
+				time.sleep(0.9)
+				sys.exit(1)
+		elif report == "n":
+			print("[+] Seems there wasnt any bugs for you to report, so why bother choosing to report bugs, lol ")
+			time.sleep(0.5)
+			sys.exit(1)
+		else:
+			print("\033[1;91m[!] Invalid Command!!!\033[0m")
+			time.sleep(0.1)
+			sys.exit(1)
+	except KeyboardInterrupt:
+		print ("\n")
+		print ("\033[1;91m[!] User Interruption Detected..!\033[0")
+		time.sleep(0.5)
+		sys.exit(1)
+elif option == "15":
+	def spoof(target,ports):
+		TestedPorts = []
+		if ("ports"=="*"):
+			TestedPorts = ['25','465','587','2525']
+			ports = "25, 465, 587 and 2525"
+		else:
+			TestedPorts = list(ports.split(","))
+			testuser = "testuser@mail.ca"
+			message = MIMEMultipart()
+			message["From"] = testuser
+			message["To"] = testuser
+			message["Subject"] = "test"
+			text = message.as_string()
+			print("\033[1;91m{}[!]\033[0m\033[1;97mLooking For Email Spooffing Vulnerability on port {}..... \033[0m\033[1;91m[!]\033[0m\n\033[94m".format(WHITE,ports))
+			for port in TestedPorts: 
+				print("{} Testing Email Spoofing on port {}.....\n\033[94m".format(WHITE,port))
+			try:
+				SMTP(target,port).sendmail(testuser,testuser,text)
+				print("{} The SMTP Server Targeted : {} is potentialy vulnerable to mail spoofing. Authentification don't seem to be required on port {} \033[0;37m \n".format(GREEN,target,port))
+			except (SMTPRecipientsRefused, SMTPSenderRefused, SMTPResponseException):
+				print("{} Recipient error encountered. The SMTP Server Targeted: {} don't seem to be vunlerable to mail spoofing on port {} \033[0;37m \n ".format(BLUE,target,port))
+			except ConnectionRefusedError:
+				print("{} Connection refused by host {}. It don't seem to be vunlerable to mail spoofing on port {} \033[0;37m \n".format(BLUE,target,port))
+			except Exception:
+				print("{} Exception Occured on host {}. It don't seem to be vunlerable to mail spoofing on port {} \033[0;37m \n".format(BLUE,target,port))
+			except KeyboardInterrupt:
+				print("Stopping...")
+				exit()
+	def userenum (target,ports):
+		TestedPorts = []
+		if (ports =="*"):
+			TestedPorts = ['25','465','587','2525']
+			ports = "25, 465, 587 and 2525"
+		else:
+			TestedPorts = list(ports.split(","))
+			print("\033[1;91m{}[!]\033[0m\033[1;97m Looking For user enumeration vulnerability on port {}..... \033[0m\n\033[94m".format(WHITE,ports))
+		for port in TestedPorts:
+			print("\033[1;91m{}[!]\033[0m\033[1;997m Testing user enumeration on port {}.....\033[0m\n\033[94m".format(WHITE,port))
+		try:
+			verify = SMTP(target, port).verify("")
+			if verify[0] in [250, 252]:
+				print("{} The SMTP Server Targeted: {} is potentialy vulnerable to user enumeration on port {}. VRFY query responded status : {}  \033[0;37m \n".format(GREEN,target,port,verify[0]))
+			else:
+				print("{} The SMTP Server Targeted: {} don't seem to be vulberable to user enumeration on port {}. VRFY query responded statys : {}  \033[0;37m \n".format(BLUE,target,port,verify[0]))
+		except Exception:
+			print("{} Exception Occured on host {}. It don't seem to be vunlerable to user enumeration on port {}. \033[0;37m \n".format(BLUE,target,port))
+		except KeyboardInterrupt:
+			print("Stopping...")
+			exit()
+
+	target = input("\033[1;91m[+]\033[0m\033[1;97mEnter SMTP Server: \033[0m")
+	port = input('\033[1;91m[+]\033[0m\033[1;97mEnter port or type "*" to use all ports: \033[0m')
+	spoof(target,port)
+	userenum(target,port)
+ 
+#### InfoStealer Attack
+elif option == "16":
+    W = '\033[0m'
+    C = '\033[36m'
+    R = '\033[31m'
+    G = '\033[32m'
+ 
+    os.system("clear")
+    print(banner)
+    ten_main_menu = ("""
+                     \033[1;91m[??] Choose an option:
+                     \033[1;91m[\033[1;33;40m1\033[0m\033[1;91m] \033[1;97m Check Email Data Breach
+                     \033[1;91m[\033[1;33;40m2\033[0m\033[1;91m] \033[1;97m Check Domain Data Breach
+                     \033[1;91m[\033[1;33;40m3\033[0m\033[1;91m] \033[1;97m Check Username Data Breach
+                     \033[1;91m[\033[1;33;40mG\033[0m\033[1;91m] \033[1;97m Go back
+                     """) ##I would still add more here
+    print(ten_main_menu)
+    ten_input = input('\033[38;5;208mxosint>> \033[0m')
+    
+    if ten_input == "1":
+        email_answer = input("\033[1;91m[+]\033[1;97m Enter the email to check for Data Breach: \033[0m")
+        print("")
+        def search_by_email(email_answer):
+            api_url = "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-email"
+            url = f"{api_url}?email={email_answer}"
+            
+            
+            try:
+                response = requests.get(url)
+                response.raise_for_status()
+                data = response.json()
+                return data
+            
+            except requests.exceptions.RequestException as e:
+                print(f"[!] An Error Occured: {e}")
+                return None
+            
+        result = search_by_email(email_answer) # type: ignore
+        if result:
+            print("\033[1;91m[+]\033[0m\033[1;97m Breached Data: \033[0m")
+            import json
+            print(json.dumps(result, indent=4))
+        else:
+            print("\033[1;91m[+]\033[0m\033[1;97m No Data found or an error occurred. \033[0m")
+    
+    elif ten_input == "2":
+        domain_answer = input("\033[1;91m[+]\033[1;97m Enter the Doamin to check (ending in .com): \033[0m")
+        print("")
+        def search_by_domain(domain_answer):
+            api_url = "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-domain"
+            url = f"{api_url}?domain={domain_answer}"
+            
+            try:
+                response = requests.get(url)
+                response.raise_for_status()
+                data = response.json()
+                return data
+            except requests.exceptions.RequestException as e:
+                print(f"[!] An Error Occured: {e}")
+                return None
+        
+        result2 = search_by_domain(domain_answer)
+        if result2:
+            print("\033[1;91m[+]\033[0m\033[1;97m Breached Data: \033[0m")
+            import json
+            print(json.dumps(result2, indent=4))
+        else:
+            print("\033[1;91m[+]\033[0m\033[1;97m No Data found or an Error Occurred. \033[0m")
+            
+    
+    elif ten_input == "3":
+        username_answer = input("\033[1;91m[+]\033[1;97m Enter the Username to check: \033[0m")
+        print("")
+        def search_by_domain(username_answer):
+            api_url = "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-username"
+            url = f"{api_url}?username={username_answer}"
+            
+            try:
+                response = requests.get(url)
+                response.raise_for_status()
+                data = response.json()
+                return data
+            except requests.exceptions.RequestException as e:
+                print(f"[!] An Error Occured: {e}")
+                return None
+        
+        result3 = search_by_domain(username_answer)
+        if result3:
+            print("\033[1;91m[+]\033[0m\033[1;97m Breached Data: \033[0m")
+            import json
+            print(json.dumps(result3, indent=4))
+        else:
+            print("\033[1;91m[+]\033[0m\033[1;97m No Data found or an Error Occurred. \033[0m")
+        
+
+    elif ten_input == "G" or "g":
+        os.system("cd $HOME")
+        os.system("sudo xosint || xosint || python xosint")
+    
+    else:
+        print("\033[1;91m[!]\033[0m\033[1;97mInvalid Command..exiting\033[0m")
+        time.sleep(0.0001)
+        exit()
+        
+
+
+#### DEEP WEB SCRAPING OSINT
+
+elif option == "17":
+	W = '\033[0m'
+	C = '\033[36m'
+	R = '\033[31m'
+	G = '\033[32m'
+	
+	try:
+		import subprocess as subp
+	except ImportError:
+		print("Required Module not installed...exiting")
+		exit()
+
+	def service():
+		print('\n' + C + "[~]Checking for tor service...." + W + '\n')
+		if platform.system() == "Linux":
+			cmd = 'systemctl is-active tor.service && tor'
+			co = subp.Popen(cmd, shell=True,stdout=subp.PIPE).communicate()[0]
+			if 'inactive' in str(co):
+				print(R + '[!] Tor Service is not Running ' + W + '\n')
+				print(R + '[!] Tor Service is required to Run this feature... ')
+				print(R + '[!] Type' + W + " tor " + R + 'if your using termux or type' + W + " service tor start " + R + 'if your using linux\n')
+				print(C + '[*] After doing that run ' + W + " xosint " + C + 'again ') 
+				exit()
+			else:
+				print(C + '[+] Tor Service is running....' + W + '\n')
+		else:
+			command = "tor"
+			os.system(command)
+			print(C + '[+] Tor Service is running...' + W + '\n')
+
+	def scrap():
+		r = "http://icanhazip.com"
+		page = requests.get(r)
+		print(R + '[+]' + G + ' Connected to Tor....')
+		print(R + '[->]' + G + 'Your tor ip --> ' + page.text)
+	
+	
+	def main():
+		from bs4 import BeautifulSoup
+		
+		session = requests.session()
+		#session.proxies["http"] = "127.0.0.1:9050" 
+		#session.proxies["https"] = "127.0.0.1:9050"
+		
+		
+		query = input('\033[1;91m[+]\033[0m\033[1;94mEnter keyword to search: \033[0m')
+		URL = f"https://ahmia.fi/search/?q={query}"
+		page = requests.get(URL)
+		request = requests.get(URL)
+		
+		if request.status_code == 200:
+			print('\n' + G + '[!] Request went through \n')
+			time.sleep(0.5)
+			print(G + '[+] Getting .onion links for you: [+] \033[0m\n')
+			time.sleep(0.5)
+			soup = BeautifulSoup(page.content, "html.parser")
+			for a_href in soup.find_all("a", href=True):
+				print(a_href["href"])
+			time.sleep(0.5)
+			choice = input('\033[1;91m[+]\033[0m\033[1;94mOpen results in browser? (y/n): \033[0m')
+			if choice == "y":
+				import webbrowser
+				webbrowser.open(f"https://ahmia.fi/search/?q={query}")
+				time.sleep(0.5)
+				print("If it doesnt open, its most likely your using Termux")
+			elif choice == "n":
+				sys.exit(1)
+			else:
+				print("Wrong input")
+				exit()
+		else:
+			print(R + '[!] Request didnt go through please check your network or try again later \n')
+			exit(1)
+	service()
+	scrap()
+	main()
+
+
+elif option == "18":
+    os.system("clear")
+    print(banner)
+    second_main_menu = ("""
+                     \033[1;91m[??] Choose an option:
+                     \033[1;91m[\033[1;33;40m18\033[0m\033[1;91m] \033[1;97m Protonmail OSINT
+                     \033[1;91m[\033[1;33;40m19\033[0m\033[1;91m] \033[1;97m Vehicle Identification Number OSINT
+                     \033[1;91m[\033[1;33;40m20\033[0m\033[1;91m] \033[1;97m Basic Github OSINT
+                     \033[1;91m[\033[1;33;40m21\033[0m\033[1;91m] \033[1;97m Vehicle License plate OSINT
+                     \033[1;91m[\033[1;33;40m22\033[0m\033[1;91m] \033[1;97m ImageHunt \033[1;91m[\033[1;92mBETA\033[0m\033[1;91m]
+                     \033[1;91m[\033[1;33;40m23\033[0m\033[1;91m] \033[1;97m NewsOSINT
+                     \033[1;91m[\033[1;33;40m24\033[0m\033[1;91m] \033[1;97m Phone number Location 
+                     \033[1;91m[\033[1;33;40m25\033[0m\033[1;91m] \033[38;5;208m Tookie-OSINT
+                     \033[1;91m[\033[1;33;40m26\033[0m\033[1;91m] \033[1;97m Code Analysis
+                     \033[1;91m[\033[1;33;40m27\033[0m\033[1;91m] \033[1;97m DNSInf OSINT \033[1;91m[\033[1;92mNEW!\033[0m\033[1;91m]
+                     \033[1;91m[\033[1;33;40m28\033[0m\033[1;91m] \033[1;97m Text Analysis \033[1;91m[\033[1;92mNEW!\033[0m\033[1;91m]
+                     \033[1;91m[\033[1;33;40m29\033[0m\033[1;91m] \033[1;97m Network Mapper \033[1;91m[\033[1;92mBETA!\033[0m\033[1;91m]
+                     
+                     
+                     \033[1;91m[\033[1;33;40mG\033[0m\033[1;91m] \033[1;97m  Go back
+                     \033[1;91m[\033[1;33;40m99\033[0m\033[1;91m] \033[1;97m Quit X-osint
+                     """) ##I would still add more here
+    print(second_main_menu)
+    second_input = input('\033[38;5;208mxosint>> \033[0m')
+    
+
+
+##Network Mapper
+    if second_input == "29":
+
+        app.run(host='0.0.0.0', port=8000)
+        sys.exit(1)
+        
+    
+    if second_input == "99":
+        #print("\033[1;92mExiting X-osint Program...\033[0m")
+        exit()
+    
+##Text Analysis
+    if second_input == "28":
+        information = """Text Analysis is used to analyze, process, and extract information from text data using NLP processing, \nwith an Integration with deep learning frameworks \nEg: Apple is looking at buying U.K. startup for $1 billion."""
+        print(information)
+        nlp = spacy.load('en_core_web_sm')
+        ##text = "Apple is looking at buying U.K. startup for $1 billion."
+        text = input("\n\033[1;91m[?]\033[1;97m Enter the Text To Analyse: \033[1;94m")
+        doc = nlp(text)
+        
+        print("\n\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mTokens: \033[0m")
+        for token in doc:
+            print(token.text)
+            
+        
+        print("\n\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mPOS Tags: \033[0m")
+        for token in doc:
+            print(f"{token.text}: {token.pos_}")
+            
+        print("\n\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mNamed Entities: \033[0m")
+        for ent in doc.ents:
+            print(f"{ent.text}: {ent.label_}")
+            sys.exit(1)
+
+##DnsInf Action    
+    if second_input == "27":
+        def dnsinf():
+            dnsinf_server = input("\033[1;91m[?]\033[1;97m Enter the DNS server IP address you want to test (e.g., 8.8.8.8): \033[0m")
+            domain_query = input("\033[1;91m[?]\033[1;97m Enter a domain to query (e.g., example.com): \033[0m")
+            
+            geoip_info = get_geoip_info(dnsinf_server)
+            print(f"\n\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mGeolocation Information for {dnsinf_server}: \033[0m")
+            print(json.dumps(geoip_info, indent=4))
+       
+            
+            whois_info = get_whois_info(dnsinf_server)
+            print(f"\n\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mWHOIS Information for {dnsinf_server}:\033[0m")
+            print(json.dumps(whois_info, indent=4))
+           
+            
+            dns_result = dns_query(dnsinf_server, domain_query)
+            print(f"\n\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mDNS Query Result for {domain_query} using {dnsinf_server}: \033[0m")
+            print(dns_result)
+         
+            
+            ping_time = ping(dnsinf_server)
+            if ping_time:
+                print(f"\n\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mPing to DNS server {dnsinf_server}\033[0m: {ping_time * 1000:.2f} ms")
+            else:
+                print(f"\n\033[1;91m[!]\033[1;97mPing to DNS server {dnsinf_server} failed.\033[0m")
+          
+            
+            print(f"\n\033[1;91m[*]\033[1;97m Performing speed test on dns server {dnsinf_server}...\033[1;91m[*]\033[1;97m")
+            download_speed, upload_speed, latency = test_speed()
+            sleep(0.1)
+            print(f"\033[1;91m➤\033[1;93m Download Speed\033[0m: {download_speed:.2f} Mbps")
+            sleep(0.1)
+            print(f"\033[1;91m➤\033[1;93m Upload Speed\033[0m: {upload_speed:.2f} Mbps")
+            sleep(0.1)
+            print(f"\033[1;91m➤\033[1;93m Latency\033[0m: {latency:.2f} ms")
+            print("")
+        
+            sys.exit(1)
+            
+            
+        
+        dnsinf()
+
+    if second_input == "26":
+        def run_analyser():
+            file_source = input("\033[1;91m[?]\033[1;97m Enter path to the file to analyze (eg: .py or .js file): \033[0m")
+            
+            if not os.path.isfile(file_source):
+                print(f"\033[1;91m[!]\033[1;97m File not found: {file_source}")
+                sys.exit(1)
+            
+            file_extension = os.path.splitext(file_source)[1]
+            if file_extension == ".py":
+                analyze_python_file(file_source)
+            
+            elif file_extension == ".js":
+                analyze_javascript_file(file_source)
+            
+            else:
+                print(f"\033[1;91m[!]\033[1;97m Unsupported file type: {file_source}")
+                sys.exit(1)
+
+        
+        run_analyser()
+        sys.exit(1)
+        
+
+    if second_input == "25":
+        ##Add code here
+        print("\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mRunning Tookie-osint \033[1;91m[\033[1;92mOUR PARTNERS\033[0m\033[1;91m]")
+        time.sleep(2)
+        os.system("clear || cls")
+        print(banner)
+        print("\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mLoading OUR PARTNERS.....\033[0m")
+        time.sleep(0.5)
+        os.system("cls || clear")
+        print(tookie_banner)
+        print("\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mLaunching into Tookie-osint Installation....3s\033[0m")
+        time.sleep(3)
+        
+        #tookie_dir = ""
+        
+        def is_termux():
+            return "termux" in os.getenv("SHELL", "").lower()
+        
+        def clone_tookie_osint():
+            #global tookie_dir
+            home_dir = os.path.expanduser("~")
+            tookie_dir = os.path.join(home_dir, "tookie-osint")
+            
+            if is_termux():
+                print("Detected Termux. Setting up...")
+                os.system("termux-setup-storage")
+                os.system("ln -s storage/downloads Downloads")
+                os.system(f"git clone https://github.com/alfredredbird/tookie-osint {tookie_dir}")
+                os.chdir(tookie_dir)  
+                os.system(f"pip3 install -r {os.path.join(tookie_dir, 'requirements.txt')}")
+                run_tookie_osint(tookie_dir)  
+            else:
+                print(f"\033[1;91m[+]\033[1;97m Detected {platform.system()}. Cloning tookie-osint...\033[0m")
+                if not os.path.exists(tookie_dir):
+                    repo_url = "https://github.com//alfredredbird/tookie-osint.git"
+                    os.system(f"git clone {repo_url} {tookie_dir}")
+                    os.chdir(tookie_dir)  
+                    os.system(f"pip install -r {os.path.join(tookie_dir, 'requirements.txt')}")
+                    run_tookie_osint(tookie_dir)  
+                else:
+                    print("Tookie-OSINT already exists.")
+                    run_option = input("\033[1;91m[?]\033[1;97m Do you want to run Tookie-OSINT? (Y/N): \033[0m").strip().lower()
+                    
+                    if run_option == "y":
+                        os.chdir(tookie_dir)  
+                        run_tookie_osint(tookie_dir)
+                    elif run_option == "n":
+                        print("\033[1;91m[+]\033[1;97m Exiting program. \033[0m")
+                        sys.exit(1) # pylint: disable=unreachable
+                    else:
+                        print("\033[1;91m[+]\033[1;97m Invalid option. Exiting program. \033[0m")
+                        sys.exit(1) # pylint: disable=unreachable
+        
+        def run_tookie_osint(tookie_dir):
+            brib_path = os.path.join(tookie_dir, "brib.py")
+            if os.path.exists(brib_path):
+                if platform.system() == "Windows":
+                    os.system(f"python.exe {brib_path}")
+                else:
+                    os.system(f"python {brib_path}")
+            else:
+                print("\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mTookie-OSINT not found. Please clone before running \033[0m")
+                sys.exit(1)
+
+        
+                    
+        
+        def install_tookie_osint():
+            os.system("clear || cls")
+            print(tookie_banner)
+            tosint_main_menu = ("""
+                     \033[1;91m[??] Choose an Installation
+                     
+                     \033[1;91m[\033[1;33;40m1\033[0m\033[1;91m] \033[1;97m Clone into Tookie-OSINT
+                     \033[1;91m[\033[1;33;40m2\033[0m\033[1;91m] \033[1;97m Run Tookie-OSINT 
+                     
+                     \033[1;91m[\033[1;33;40mG\033[0m\033[1;91m] \033[1;97m  Go back
+                     """)
+            print(tosint_main_menu)
+            t_option = input("\033[1;91m[\033[1;33;40m?\033[0m\033[1;91m] \033[1;93mSelect an option: \033[0m")
+            if t_option == "1":
+                clone_tookie_osint()
+            
+            elif t_option == "2":
+                home_dir =os.path.expanduser("~")
+                tookie_dir = os.path.join(home_dir, "tookie-osint")
+                run_tookie_osint(tookie_dir)
+            
+            else:
+                print("\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mInvalid option \033[0m")
+        
+        install_tookie_osint()
+
+
+    if second_input == "22":
+        image_hunt()
+        exit()
+    
+    elif second_input == "23":
+        newsOsint()
+        exit()
+        
+    elif second_input == "24":
+        os.system("clear")
+        print(banner)
+        ###Menu for Two methods
+        nine_main_menu = ("""
+                     \033[1;91m[??] Choose a Method for Phone number Location:
+                     \033[1;91m[\033[1;33;40m1\033[0m\033[1;91m] \033[1;97m Method 1 \033[1;91m[\033[1;92mLESS INFO\033[0m\033[1;91m]
+                     \033[1;91m[\033[1;33;40m2\033[0m\033[1;91m] \033[1;97m Method 2 \033[1;91m[\033[1;92mMORE INFO\033[0m\033[1;91m]
+                     
+                     \033[1;91m[\033[1;33;40mG\033[0m\033[1;91m] \033[1;97m  Go back
+                     """)
+        print(nine_main_menu)
+        seven_input = input('\033[38;5;208mxosint>> \033[0m')
+        
+        if seven_input == '1':
+            phone_inf()
+            exit()
+            
+        elif seven_input == "2":
+            phone_inf2()
+            exit()
+        
+        elif seven_input == "G" or "g":
+            os.system("clear")
+            os.system("sudo xosint || xosint || python3 xosint")
+        
+        else:
+            print("\033[1;91m[\033[1;33;40m!\033[0m\033[1;91m] \033[1;93mInvalid input")
+            exit()
+            
+    
+    elif second_input == "18":
+        def extract_timestamp(mail, source_code):
+            try:
+                timestamp = re.sub(':', '', re.search(':[0-9]{10}::', source_code.text)[0])
+                return datetime.frontimestamp(int(timestamp))
+            except AttributeError:
+                return None
+        # CHecks if its a business mail address
+        
+        # Protonmail account validity check
+        def protonmailaccountcheck():
+            invalidEmail = True
+            regexEmail = r"([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)"
+            print("\n\nYou want to know if a protonmail email is real or not?")
+            while invalidEmail:
+                mail = input("\033[1;91m[+]\033[1;97m Enter the email(protonmail accounts only!!): \033[0m")
+                print("")
+                if(re.search(regexEmail,mail)):
+                    invalidEmail = False
+                else:
+                    print("Invalid Email")
+                    invalidEmail = True
+            #Check if the protonmail exist : valid / not valid
+            requestProton = requests.get('https://api.protonmail.ch/pks/lookup?op=index&search='+str(mail))
+            bodyResponse = requestProton.text
+            protonNoExist = "info:1:0" #not valid
+            protonExist = "info:1:1" #valid
+            if protonNoExist in bodyResponse:
+                print("\033[1;91m[!]\033[0m\033[1;97m Protonmail email is \033[0m" + f"{bcolors.FAIL}not valid{bcolors.ENDC}")
+            if protonExist in bodyResponse:
+                print("\033[1;91m[+]\033[0m\033[1;97m Protonmail email is \033[0m" + f"{bcolors.OKGREEN}valid{bcolors.ENDC}")
+                regexPattern1 = "2048:(.*)::" #RSA 2048-bit (Older but faster)
+                regexPattern2 = "4096:(.*)::" #RSA 4096-bit (Secure but slow)
+                regexPattern3 = "22::(.*)::" #X25519 (Modern, fastest, secure)
+            try:
+                timestamp = int(re.search(regexPattern1, bodyResponse).group(1))
+                dtObject = datetime.fromtimestamp(timestamp)
+                print("")
+                print("\033[1;91m[+]\033[0m\033[1;97m Date and time of the creation:\033[0m", dtObject)
+                print("")
+                print("\033[1;91m[+]\033[0m\033[1;97m Encryption : RSA 2048-bit (Older but faster)\033[0m")
+            except:
+                try:
+                    timestamp = int(re.search(regexPattern2, bodyResponse).group(1))
+                    dtObject = datetime.fromtimestamp(timestamp)
+                    print("\033[1;91m[+]\033[0m\033[1;97m Date and time of the creation:\033[0m\n", dtObject)
+                    print("\033[1;91m[+]\033[0m\033[1;97m Encryption : RSA 4096-bit (Secure but slow)\033[0m")
+                except:
+                    timestamp = int(re.search(regexPattern3, bodyResponse).group(1))
+                    dtObject = datetime.fromtimestamp(timestamp)
+                    print("\033[1;91m[+]\033[0m\033[1;97m Date and time of the creation:\033[0m", dtObject)
+                    print("\033[1;91m[+]\033[0m\033[1;97m Encryption : X25519 (Modern, fastest, secure)\033[0m")
+            #Download the public key attached to the email
+            invalidResponse = True
+            print("\n\033[1;91m[?]\033[0m\033[1;97mDo you want to download the public key attached to the email ?\033[0m")
+            while invalidResponse:
+                #Input
+                responseFromUser = input("""Please enter "yes" or "no": """)
+                #Text if the input is valid
+                if responseFromUser == "yes":
+                    invalidResponse = False
+                    requestProtonPublicKey = requests.get('https://api.protonmail.ch/pks/lookup?op=get&search='+str(mail))
+                    bodyResponsePublicKey = requestProtonPublicKey.text
+                    print(bodyResponsePublicKey)
+                elif responseFromUser == "no":
+                    invalidResponse = False
+                else:
+                    print("Invalid Input")
+                    invalidResponse = True
+
+        #Email Search OSINT footprint
+        def emailtraces():
+            headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5)\
+                AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36'}
+            
+            print("Checking Server Status\n")
+            response = requests.get('https://google.com', headers)
+            print(response)
+            if response.status_code == 200:
+                print("Status: \033[1;94mSuccess!\033[0m\n")
+            elif response.status_code == 404:
+                print("\033[1;91m404 Not Found, please try again!!\033[0m")
+            
+            searchfor = input("""\033[1;91m[+]\033[0m\033[1;94m Enter email with quotation marks eg "test@protonmail.com":  \n\033[0m""")
+            
+            print("\nprocessing request....\n")
+            
+            for result in search(searchfor, tld="com", stop=10, pause=2):
+                print(result)
+        
+        def check_domain_name(mail):
+            return mail.split("@")[1] not in ["protonmail.com", "proton.me"]
+
+
+        def make_api_request(mail):
+            try:
+                request = requests.get("https://account.proton.me/api/users/available", 
+                                       headers={
+                "x-pm-appversion":"web-account@5.0.11.11",
+                "x-pm-locale":"en_US"
+                },
+                params={
+                "Name":mail,
+                "ParseDomain":"1"})
+                is_business_address = check_domain_name(mail) #Return code 429 = API limit exceeded
+                
+                if (request.status_code == 409):
+                    source_code = requests.get(f'https://api.protonmail.ch/pks/lookup?op=index&search={mail}')
+                    creation_date = extract_timestamp(mail, source_code)
+                    print("\033[1m\n\nProtonMail Account is VALID! Creation date: " + str(creation_date) + " \033[0m\U0001F4A5")
+                    return True
+                elif(request.status_code == 429):
+                    print("\u001b[31m\n\nAPI requests limit exceeded...")
+                
+                elif is_business_address:
+                    print("\u001b[33m\nProtonmail API does not handle business emails, ""but you can get account creation date + PGP Key")
+                    return True
+                else:
+                    print("\u001b[31m\n\nProtonMail account is NOT VALID")
+                    return False
+            except:
+                print("Error when requesting the API")
+                return False
+
+        
+        
+        #Get protonmail user PGP key
+        def pgpkeyinformation():
+            choice = input("""
+                 View PGP key in Terminal  [T] or Download Key [D]: """)
+            
+            if choice == "T" or "t":
+                pgpkeyview()
+            if choice == "D" or "d":
+                pgpkeydirectdownload()
+                
+        def pgpkeydirectdownload():
+            email_query = input("\nEnter target email to download PGP key: ")
+            import webbrowser
+            alink = 'https://api/protonmail.ch/pks/lookup?op=get&search='+email_query
+            new = 2
+            webbrowser.open(alink, new=new)
+            
+        #extract the key
+        def extract_key(source_code):
+            regex = ':[0-9]{2,4}:(.*)::'
+            
+            try:
+                return re.search(regex, source_code.text)[0].split(":")[1]
+            except AttributeError:
+                return None
+        
+        # view pgp key within terminal
+        def pgpkeyview():
+            invalidEmail = True
+            regexEmail = r"([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)"
+            
+            print("\nInput protonmail user email to get user's PGP key\n")
+            while invalidEmail:
+                mail = input("Type in protonmail: ")
+                
+                if (re.search(regexEmail, mail)):
+                    invalidEmail = False
+                else:
+                    print("Protonmail user doesnt exists\n")
+                    invalidEmail = True
+            if(make_api_request(mail)):
+                source_code = request.get("https://api.protonmail.ch/pks/lookup?op=index&search=" + mail)
+                if("info:1.0" in source_code.text):
+                    print("Cant get the PGP information")
+                else:
+                    timestamp = extract_timestamp(mail, source_code)
+                    key = extract_key(source_code)
+                    
+                    print("PGP Key Date and Creation Time: ", str(timestamp))
+                    
+                    if(key != "22"):
+                        print("Encryption Standard: RSA " + key + "-bit")
+                    else:
+                        print("Encryption standard: ECC Curve")
+                    
+                    invalidResponse = True
+                    
+                    print("Get user PGP Key?: ")
+                    while invalidResponse:
+                        responseFromUser = input("""[Y] or [N]: """)
+                        
+                        if responseFromUser == "Y":
+                            invalidResponse = False
+                            requestProtonPublicKey = request.get("https://api.protonmail.ch/pks/lookup?op=index&search=" + str(mail))
+                            
+                            bodyResponsePublicKey = requestProtonPublicKey.text
+                            print(bodyResponsePublicKey)
+                        elif responseFromUser == "N":
+                            invalidResponse
+                        else:
+                            print("Input not valid")
+                            invalidResponse = True
+        #CHeck user Ip belongs to protonVPN user       
+        def protonvpnipsearch():
+            while True:
+                try:
+                    ip = ipaddress.ip_address(input('Enter IP Address: '))
+                    
+                    break
+                except ValueError:
+                    continue
+            requestProton_vpn = requests.get("https://api.protonmail.ch/vpn/logicals")
+            bodyResponse = requestProton_vpn.text
+            if str(ip) in bodyResponse:
+                print("\033[1;92m[+] This Ip is currently associated to protonVPN \033[0m")
+            else:
+                print("\033[1;91m[!] This Ip is not associated with any protonVPN Account\033[0m")
+                
+        def checkProtonAPIStatut():
+            requestProton_mail_statut = requests.get('https://api.protonmail.ch/pks/lookup?op=index&search=test@protonmail.com')
+            if requestProton_mail_statut.status_code == 200:
+                print("Protonmail API is " + f"{bcolors.BOLD}ONLINE{bcolors.ENDC}")
+            else:
+                print("Protonmail API is " + f"{bcolors.BOLD}OFFLINE{bcolors.ENDC}")
+                requestProton_vpn_statut = requests.get('https://api.protonmail.ch/vpn/logicals')
+                if requestProton_vpn_statut.status_code == 2:
+                    print("Protonmail VPN is " + f"{bcolors.BOLD}ONLINE{bcolors.ENDC}")
+                else:
+                    print("Protonmail VPN is " + f"{bcolors.BOLD}OFFLINE{bcolors.ENDC}")
+
+        
+        proton_osint = ("""
+                      \033[1;91m[\033[1;33;40m1\033[0m\033[1;91m] \033[1;97m Protonmail Account Check
+                      \033[1;91m[\033[1;33;40m2\033[0m\033[1;91m] \033[1;97m Email Traces
+                      \033[1;91m[\033[1;33;40m3\033[0m\033[1;91m] \033[1;97m ProtonVPN IP Search
+                      \033[1;91m[\033[1;33;40m4\033[0m\033[1;91m] \033[1;97m PGP Key Information
+                      \033[1;91m[\033[1;33;40mG\033[0m\033[1;91m] \033[1;97m Go back
+                      """)
+        print(proton_osint)
+        b_osint = input('\033[1;91m[+]\033[0m\033[1;94m Make your choice: \033[0m')
+        checkProtonAPIStatut()
+        if b_osint == "1":
+            ##checkprotonmailapistatus()
+            protonmailaccountcheck()
+      
+        elif b_osint == "2":
+            emailtraces()
+        elif b_osint == "3":
+            protonvpnipsearch()
+        elif b_osint == "4":
+            pgpkeyinformation()
+        elif b_osint == "G" or "g":
+            os.system("cd $HOME")
+            os.system("sudo xosint || xosint || python xosint")
+        else:
+            print("\033[1;91m[!]\033[0m\033[1;97mInvalid Command..exiting\033[0m")
+            time.sleep(0.0001)
+            exit()
+    elif second_input == "19":
+        open_terminal = ("""
+                      \033[1;91m[\033[1;33;40m1\033[0m\033[1;91m] \033[1;97m View in CLI
+                      \033[1;91m[\033[1;33;40m2\033[0m\033[1;91m] \033[1;97m View in GUI
+                      \033[1;91m[\033[1;33;40mG\033[0m\033[1;91m] \033[1;97m Go back
+                      """)
+        print(open_terminal)
+        c_input = input('\033[1;91m[+]\033[0m\033[1;94m Make your choice: \033[0m')
+        
+        if c_input == "1":
+            #import vininfo
+            import click
+            from vininfo import Vin
+            num = input("\033[1;91m[+]\033[1;97m Enter VIN Number: \033[0m")
+            def check(num):
+                if Vin(num).verify_checksum():
+                    click.secho('Checksum is valid', fg='green')
+                else:
+                    click.secho('Checksum is not valid', fg='red', err=True)
+                    sys.exit(1)
+            check(num)
+            vin = Vin(num)
+            
+            print("")
+            click.secho('Basic:')
+            print("\033[1;97m[+] Country: \033[0m" + vin.country)
+            print()
+            time.sleep(0.5)
+            print('\033[1;97m[+] Manufacturer: \033[0m' + vin.manufacturer)
+            time.sleep(0.5)
+            print("\033[1;97m[+] Region: \033[0m" + vin.region)
+            time.sleep(0.5)
+            print("\033[1;97m[+] Serial: \033[0m" + vin.vis)
+            print()
+            time.sleep(0.5)
+            print('\033[1;97m[+] Plant: \033[0m' + vin.vds)
+            time.sleep(0.5)
+            print("\033[1;97m[+] Model: \033[0m" + vin.wmi)
+            time.sleep(0.5)
+            print("")
+            click.secho('Year Model')
+            print(vin.years)
+            print()
+            
+         
+        elif c_input == "2":
+            from tkinter import *
+            from tkinter import messagebox
+            from vininfo import Vin
+            import requests
+            
+            root = Tk()
+            
+            root.title("X-osint VIN Number Extractor")
+            
+            #Create a label
+            
+            lbl_vin_number = Label(root, text="VIN Number:")
+            
+            lbl_vin_number.grid(row=0, column=0, padx=5, pady=5)
+            
+            #Create an entry box
+            
+            ent_vin_number = Entry(root)
+            ent_vin_number.grid(row=0, column=1, padx=5, pady=5)
+            #Create a button
+            btn_extract = Button(root, text="Extract", command=lambda: extract_data(ent_vin_number.get()))
+            
+            btn_extract.grid(row=1, column=0, padx=5, pady=5, columnspan=2)
+            
+            def extract_data(vin_number):
+                if vin_number == "":
+                    messagebox.showinfo("Error", "Please enter a valid VIN number!")
+                else:
+                    try:
+                        vin_url = "https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVINValuesExtended/" + vin_number + "?format=json"
+                        vin_data = requests.get(vin_url).json()
+                        make = vin_data['Results'][0]['Make']
+                        model = vin_data['Results'][0]['Model']
+                        year = vin_data['Results'][0]['ModelYear']
+                        #country = vin_data['Results'][0]['Country']
+                        messagebox.showinfo("VIN Information", "Make: " + make + "\nModel: " + model + "\nYear: " + year)
+                    except:
+                        messagebox.showinfo("Error", "Invalid VIN number!")
+                        
+                        #Run the main loop
+            root.mainloop()        
+                    
+            #print("Still in development")
+        
+        
+        elif c_input == "G" or "g":
+            os.system("cd $HOME")
+            os.system("sudo xosint || xosint || python3 xosint")
+        else:
+            print("\033[1;91m[!]\033[0m\033[1;97mInvalid Command..exiting\033[0m")
+            time.sleep(0.0001)
+            exit()
+    elif second_input == "20":
+        import requests
+        import find_github_email
+        
+        username = input("\033[1;91m[+]\033[0m\033[1;97m Enter the Github Username: \033[0m")
+        url_link = f'https://api.github.com/users/{username}'
+        url_link2 = f'https://api.github.com/users/{username}/repos'
+        
+        response = requests.get(url_link)
+        response1 = requests.get(url_link2)
+        
+        
+        if response.status_code == 200:
+            user_data = response.json()
+            repos = response1.json()
+            
+            print(f"\n\033[1;96m Name: \033[0m{user_data['name']}\n")
+            print(f"\033[1;96m Location: \033[0m{user_data['location']}\n")
+            print(f"\033[1;96m Followers: \033[0m{user_data['followers']}\n")
+            print(f"\033[1;96m Following: \033[0m{user_data['following']}\n")
+            print(f"\033[1;96m Email Address: \033[0m{user_data['email']}\n")
+            print(f"\033[1;96m Number of Repos: \033[0m{len(repos)}\n")
+            
+            response2 = find_github_email.find(username)
+            print(f"\n{response2}\n")
+        else:
+            print("\n\033[1;97m[!]\033[0m\033[1;91m Error!!!, Couldnt get details, too many requests, \n\033[1;97m Try again after some time!.. \033[0m\n")
+            time.sleep(2)
+            sys.exit(1)
+        
+    elif second_input == "21":
+        try:
+            license_plate = input("\033[1;91m[+]\033[0m\033[1;97m License plate(US License plates ONLY FOR NOW): \033[0m")
+            
+            lplate = license_plate.upper()
+            plate = "".join(license_plate.split(" "))
+            
+            state = input("\033[1;91m[+]\033[1;97m State (Eg If its Alabama type 'AL'): \033[0m")
+            state = state.upper()
+            
+            print("")
+            print("\n\033[1;93mSearching.....\033[0m")
+            URL = "https://findbyplate.com/US/"+state+"/"+plate+"/"
+            
+            page = requests.get(URL, verify=True)
+            soupPage = bs(page.content, 'html.parser')
+            mayresults = soupPage.find("h2", {"class": "vehicle-modal"})
+            mayraw = mayresults.prettify().split("\n")[1]
+            may = mayraw[1:len(mayraw)]
+            
+            year = may[0:4]
+            model = may[5:len(may)]
+            
+            countryResults = soupPage.find("div", {"data-title": "PlantCountry"})
+            countryResultsraw = countryResults.prettify().split("\n")[1]
+            
+            country = countryResultsraw[1:len(countryResultsraw)]
+            countryResults = soupPage.find("div", {"data-title": "PlantCity"})
+            
+            countryResultsraw = countryResults.prettify().split("\n")[1]
+            city = countryResultsraw[1:len(countryResultsraw)]
+            
+            vtypeResults = soupPage.find("div", {"data-title": "VehicleType"})
+            
+            vtyperaw = vtypeResults.prettify().split("\n")[1]
+            type = vtyperaw[1:len(vtyperaw)]
+            
+            location = city + ", " + country
+            
+            print("\033[1;92mDone!\033[0m\n")
+            
+            print("\033[1mModel:\033[0m              \033[1mYear:\033[0m" + " " * 7 + "\033[1mVehicle Type:\033[0m")
+            print(model + " " * (20 - len(model)) + year + "        " + type)
+            
+            print("\n\033[1mPlate Number:\033[0m       \033[1mState:\033[0m      \033[1mPlant Location:\033[0m")
+            print(lplate + " " * (20 - len(lplate)) + state + "          " + location)
+
+        except KeyboardInterrupt:
+            print("\n\033[91mExiting...\033[0m")
+        
+        except AttributeError:
+            print("\033[1;91mOops!! Vehicle Not Found\033[0m")
+        except:
+            print("\033[91mError Found, please contact developer\033[0m")
+            raise;
+
+        
+    
+    elif second_input == "G" or "g":
+        os.system("cd $HOME")
+        os.system("sudo xosint || xosint || python xosint")
+    
+    
+    else:
+        print("\033[91mInvalid Option\033[0m")
+        exit()
+
+elif option == "99":
+	update()
+elif option == "00":
+	print()
+	exit
+elif option == "100":
+	print(about)
+	exit
+
+elif option == "101":
+    html_content = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What's New in Xosint?</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- Font Awesome -->
+<link
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+  rel="stylesheet"
+/>
+<!-- Google Fonts -->
+<link
+  href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
+  rel="stylesheet"
+/>
+<!-- MDB -->
+<link
+  href="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/7.3.2/mdb.min.css"
+  rel="stylesheet"
+/>
+</head>
+<body>
+<!-- MDB -->
+<script
+  type="text/javascript"
+  src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/7.3.2/mdb.umd.min.js"
+></script>
+    <div class="container mt-4">
+        <h1 class="text-center">What's New in Xosint?</h1>
+
+        <nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item active" aria-current="page">Last Updated:  August 18, 12:30PM BST</li>
+  </ol>
+</nav>
+        <h2>ChangeLogs for 2.3</h2>
+        <ul>
+            <li>Revamped Metadata Extraction to support any file type</li>
+            <li>Added DNSinf OSINT: For benchmarking and performance testing of DNS (Domain Name System) servers and giving you credible information</li>
+            <li>Added Text Analysis - powered by scapy for Fast and efficient NLP processing, Tokenization, POS tagging, NER, dependency parsing of texts.</li>
+            <li>Added Network Mapper - for WIFI Networks (IN BETA)</li>
+            <li>Added Disclaimer for using X-Osint</li>
+            <li>Other bugs fixes and improvements.</li>
+        </ul>
+
+        <h2>ChangeLogs for 2.2</h2>
+        <ul>
+            <li>Fixed Issue where the python module folium wouldnt install</li>
+            <li>Fixed Issue where the python module numpy wouldnt install</li>
+            <li>Fixed Issue where the python module google-search wouldnt install</li>
+            <li>Fixed Issue where number 2 Option wouldnt work </li>
+            <li>Phone number information is now in the "Next Menu"</li>
+            <li>Fixed issues where The 'SyntaxWarning' you're encountering is due to the use of invalid escape sequences in regular expression strings</li>
+        </ul>
+        
+        
+        <h2>ChangeLogs for 2.1.0</h2>
+        <ul>
+            <li>Fixed TKinter popup problem on start up</li>
+        </ul>
+
+        <h2>ChangeLogs for 2.1</h2>
+        <ul>
+            <li>Fixed updating</li>
+            <li>Fixed Number 3 Option error</li>
+            <li>Changed Banner</li>
+            <li>Changed User interface</li>
+            <li>Added Features</li>
+            <li>Improved Speed</li>
+            <li>And that's about it, if you face any errors or bugs kindly mail them to me or open an Issue in GitHub</li>
+        </ul>
+    </div>
+    <!-- Footer -->
+<footer class="text-center text-lg-start bg-body-tertiary text-muted">
+  <!-- Section: Social media -->
+  <section class="d-flex justify-content-center justify-content-lg-between p-4 border-bottom">
+    <!-- Left -->
+    <div class="me-5 d-none d-lg-block">
+      <span>Get connected with us on social networks:</span>
+    </div>
+    <!-- Left -->
+
+    <!-- Right -->
+    <div>
+      <a href="https://twitter.com/tech_grok" class="me-4 text-reset">
+        <i class="fab fa-twitter"></i>
+      </a>
+      <a href="https://google.com/search?q=TermuxHackz" class="me-4 text-reset">
+        <i class="fab fa-google"></i>
+      </a>
+      <a href="https://github.com/TermuxHackz" class="me-4 text-reset">
+        <i class="fab fa-github"></i>
+      </a>
+    </div>
+    <!-- Right -->
+  </section>
+  <!-- Section: Social media -->
+
+  <!-- Section: Links  -->
+  <section class="">
+    <div class="container text-center text-md-start mt-5">
+      <!-- Grid row -->
+      <div class="row mt-3">
+        <!-- Grid column -->
+        <div class="col-md-3 col-lg-4 col-xl-3 mx-auto mb-4">
+          <!-- Content -->
+          <h6 class="text-uppercase fw-bold mb-4">
+            <i class="fas fa-gem me-3"></i>Termuxhackz
+          </h6>
+          <p>
+            Welcome to X-osint where you can read all changelogs and check out whats new in X-osint.
+          </p>
+        </div>
+        <!-- Grid column -->
+
+        <!-- Grid column -->
+        <div class="col-md-2 col-lg-2 col-xl-2 mx-auto mb-4">
+          <!-- Links -->
+          <h6 class="text-uppercase fw-bold mb-4">
+            tools
+          </h6>
+          <p>
+            <a href="https://termuxhackz.github.io/tools/qr-code-generator.html" class="text-reset">QR Code Generator</a>
+          </p>
+          <p>
+            <a href="https://termuxhackz.github.io/tools/base64decoder.html" class="text-reset">Base64 Decoder and Encoder</a>
+          </p>
+          <p>
+            <a href="https://termuxhackz.github.io/tools/video-to-gif.html" class="text-reset">Convert Video to Gif</a>
+          </p>
+          <p>
+            <a href="https://termuxhackz.github.io/download-courses.html" class="text-reset">Courses</a>
+          </p>
+        </div>
+        <!-- Grid column -->
+
+        <!-- Grid column -->
+        <div class="col-md-3 col-lg-2 col-xl-2 mx-auto mb-4">
+          <!-- Links -->
+          <h6 class="text-uppercase fw-bold mb-4">
+            Useful links
+          </h6>
+          <p>
+            <a href="https://termuxhackz.github.io" class="text-reset">Website</a>
+          </p>
+          <p>
+            <a href="https://termuxhackz.github.io/Types-of-web-hacking-techniques.html" class="text-reset">Web Hacking</a>
+          </p>
+          <p>
+            <a href="https://termuxhackz.github.io/How-to-hack-ftp-web-clients-sites.html" class="text-reset">Hacking FTP Web clients</a>
+          </p>
+          <p>
+            <a href="https://termuxhackz.github.io/How-to-create-a-deface-script.html" class="text-reset">Web Defacing</a>
+          </p>
+        </div>
+        <!-- Grid column -->
+
+        <!-- Grid column -->
+        <div class="col-md-4 col-lg-3 col-xl-3 mx-auto mb-md-0 mb-4">
+          <!-- Links -->
+          <h6 class="text-uppercase fw-bold mb-4">Contact</h6>
+          <p><i class="fas fa-home me-3"></i>Europe, Somewhere</p>
+          <p>
+            <i class="fas fa-envelope me-3"></i>
+            AnonyminHack5@protonmail.com
+          </p>
+        </div>
+        <!-- Grid column -->
+      </div>
+      <!-- Grid row -->
+    </div>
+  </section>
+  <!-- Section: Links  -->
+
+  <!-- Copyright -->
+  <div class="text-center p-4" style="background-color: rgba(0, 0, 0, 0.05);">
+    © 2024 Copyright:
+    <a class="text-reset fw-bold" href="https://github.com/TermuxHackz">TermuxHackz</a>
+  </div>
+  <!-- Copyright -->
+</footer>
+<!-- Footer -->
+</body>
+</html>
+"""
+    def create_html_file(content):
+        """Create an HTML file with the provided content and return the file path."""
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".html")
+        temp_file.write(content.encode('utf-8'))
+        temp_file.close()
+        return temp_file.name
+
+    def start_node_server(html_file_path):
+        """Start a Node.js server to serve the HTML file."""
+        # Node.js server script
+        node_script = f"""
+    const http = require('http');
+    const fs = require('fs');
+    const path = require('path');
+
+    const port = 3000;
+    const filePath = path.resolve('{html_file_path}');
+
+    const requestListener = function (req, res) {{
+        fs.readFile(filePath, function(err, data) {{
+            if (err) {{
+                res.writeHead(500, {{ 'Content-Type': 'text/plain' }});
+                res.end('500 Server Error');
+                return;
+            }}
+            res.writeHead(200, {{ 'Content-Type': 'text/html' }});
+            res.end(data);
+        }});
+    }};
+
+    const server = http.createServer(requestListener);
+    server.listen(port, () => {{
+        console.log(`Visit the server below to see whats new in X-osint`)
+        console.log(`Server is running at http://localhost:${{port}}`);
+    }});
+    """
+
+    # Save the Node.js script to a temporary file
+        node_script_file = tempfile.NamedTemporaryFile(delete=False, suffix=".js")
+        node_script_file.write(node_script.encode('utf-8'))
+        node_script_file.close()
+
+        # Run the Node.js server
+        process = subprocess.Popen(["node", node_script_file.name])
+        return process
+
+    def handle_interrupt(signal, frame):
+        """Handle keyboard interrupts (Ctrl+C)."""
+        print("\nKeyboard interrupt received. Shutting down server...")
+        if server_process:
+            server_process.terminate()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, handle_interrupt)
+    
+    # Create HTML file
+    html_file = create_html_file(html_content)
+    
+    # Start Node.js server
+    server_process = start_node_server(html_file)
+    
+    try:
+        # Keep the script running to maintain the server
+        print(f"{GREEN}Server started. Press Ctrl+C to stop.{RESET}")
+        server_process.wait()
+    except KeyboardInterrupt:
+        # Handle keyboard interrupt
+        handle_interrupt(None, None)
+
+
+### ADD NEXT MAIN MENU TO IT
+	
+
+else:
+	print()
+	print("[*] Invalid Input..try again....")
+	sleep(0.9)
+	exit()
+#END OF SCRIPT

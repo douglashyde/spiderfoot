@@ -1,29 +1,43 @@
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(BASE_DIR)  # spiderfoot monorepo root
+TOOLS_DIR = os.path.join(REPO_ROOT, "tools-repos")
 HOME_DIR = "/home/user"
 
+
+def _tool_path(dirname):
+    """Resolve tool path: prefer monorepo tools-repos/, fallback to ~/."""
+    mono = os.path.join(TOOLS_DIR, dirname)
+    if os.path.isdir(mono):
+        return mono
+    home = os.path.join(HOME_DIR, dirname)
+    if os.path.isdir(home):
+        return home
+    return mono
+
+
 TOOL_PATHS = {
-    "sherlock": os.path.join(HOME_DIR, "sherlock"),
-    "maigret": os.path.join(HOME_DIR, "maigret"),
-    "holehe": os.path.join(HOME_DIR, "holehe"),
-    "social_analyzer": os.path.join(HOME_DIR, "social-analyzer"),
-    "blackbird": os.path.join(HOME_DIR, "blackbird"),
-    "nexfil": os.path.join(HOME_DIR, "nexfil"),
-    "phoneinfoga": os.path.join(HOME_DIR, "phoneinfoga"),
-    "spiderfoot": os.path.join(HOME_DIR, "spiderfoot"),
-    "theharvester": os.path.join(HOME_DIR, "theHarvester"),
-    "osintgram": os.path.join(HOME_DIR, "Osintgram"),
-    "ghunt": os.path.join(HOME_DIR, "GHunt"),
-    "x_osint": os.path.join(HOME_DIR, "X-osint"),
-    "leaksearch": os.path.join(HOME_DIR, "LeakSearch"),
-    "leaklooker": os.path.join(HOME_DIR, "LeakLooker"),
-    "cr3dov3r": os.path.join(HOME_DIR, "Cr3dOv3r"),
-    "comb2passlist": os.path.join(HOME_DIR, "comb2passlist"),
-    "oblivion": os.path.join(HOME_DIR, "Oblivion"),
-    "h8mail": os.path.join(HOME_DIR, "h8mail"),
-    "whatbreach": os.path.join(HOME_DIR, "WhatBreach"),
-    "findpeopleinfo": os.path.join(HOME_DIR, "findpeopleinfo"),
+    "sherlock": _tool_path("sherlock"),
+    "maigret": _tool_path("maigret"),
+    "holehe": _tool_path("holehe"),
+    "social_analyzer": _tool_path("social-analyzer"),
+    "blackbird": _tool_path("blackbird"),
+    "nexfil": _tool_path("nexfil"),
+    "phoneinfoga": _tool_path("phoneinfoga"),
+    "spiderfoot": REPO_ROOT,
+    "theharvester": _tool_path("theHarvester"),
+    "osintgram": _tool_path("Osintgram"),
+    "ghunt": _tool_path("GHunt"),
+    "x_osint": _tool_path("X-osint"),
+    "leaksearch": _tool_path("LeakSearch"),
+    "leaklooker": _tool_path("LeakLooker"),
+    "cr3dov3r": _tool_path("Cr3dOv3r"),
+    "comb2passlist": _tool_path("comb2passlist"),
+    "oblivion": _tool_path("Oblivion"),
+    "h8mail": _tool_path("h8mail"),
+    "whatbreach": _tool_path("WhatBreach"),
+    "findpeopleinfo": _tool_path("findpeopleinfo"),
 }
 
 DATA_DIR = os.path.join(BASE_DIR, "data")

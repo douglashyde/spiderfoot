@@ -15,6 +15,11 @@ from .cr3dov3r_tool import Cr3dOv3rTool
 from .comb2passlist_tool import Comb2PasslistTool
 from .ghunt_tool import GHuntTool
 from .spiderfoot_tool import SpiderfootTool
+from .osintgram_tool import OsintgramTool
+from .x_osint_tool import XOsintTool
+from .leaklooker_tool import LeakLookerTool
+from .oblivion_tool import OblivionTool
+from .findpeopleinfo_tool import FindPeopleInfoTool
 
 
 ALL_TOOLS = {
@@ -33,13 +38,22 @@ ALL_TOOLS = {
     # Phone OSINT
     "phoneinfoga": PhoneInfogaTool,
 
-    # Breach tools
+    # Social media specific
+    "osintgram": OsintgramTool,
+    "x_osint": XOsintTool,
+
+    # Breach / leak tools
     "xposedornot": XposedOrNotTool,
     "h8mail": H8mailTool,
     "whatbreach": WhatBreachTool,
     "leaksearch": LeakSearchTool,
     "cr3dov3r": Cr3dOv3rTool,
     "comb2passlist": Comb2PasslistTool,
+    "oblivion": OblivionTool,
+    "leaklooker": LeakLookerTool,
+
+    # People search
+    "findpeopleinfo": FindPeopleInfoTool,
 
     # Frameworks
     "spiderfoot": SpiderfootTool,
@@ -49,42 +63,48 @@ ALL_TOOLS = {
 INPUT_TOOL_MAP = {
     "email": [
         "holehe", "xposedornot", "h8mail", "whatbreach",
-        "leaksearch", "cr3dov3r", "comb2passlist",
-        "theharvester", "ghunt",
+        "leaksearch", "cr3dov3r", "comb2passlist", "oblivion",
+        "theharvester", "ghunt", "leaklooker", "findpeopleinfo",
     ],
     "username": [
         "sherlock", "maigret", "blackbird", "nexfil",
         "social_analyzer", "leaksearch", "comb2passlist",
+        "osintgram", "x_osint",
     ],
     "phone": [
-        "phoneinfoga",
+        "phoneinfoga", "findpeopleinfo",
     ],
     "domain": [
-        "theharvester", "spiderfoot",
+        "theharvester", "spiderfoot", "leaklooker",
     ],
     "full_name": [
-        # Name-based searches are done by extracting usernames first
+        "findpeopleinfo",
     ],
 }
 
 # Priority ordering - run these first as they're fastest and most reliable
 TOOL_PRIORITY = {
-    "xposedornot": 1,   # Fast API, always works
-    "holehe": 2,         # Fast, no API key
-    "sherlock": 3,       # Well maintained
-    "maigret": 4,        # Comprehensive but slower
+    "xposedornot": 1,    # Fast API, always works
+    "holehe": 2,          # Fast, no API key
+    "sherlock": 3,        # Well maintained
+    "maigret": 4,         # Comprehensive but slower
     "phoneinfoga": 5,
     "h8mail": 6,
     "leaksearch": 7,
     "cr3dov3r": 8,
     "comb2passlist": 9,
-    "whatbreach": 10,
-    "blackbird": 11,
-    "nexfil": 12,
-    "social_analyzer": 13,
-    "theharvester": 14,
-    "ghunt": 15,
-    "spiderfoot": 16,
+    "oblivion": 10,
+    "whatbreach": 11,
+    "blackbird": 12,
+    "nexfil": 13,
+    "social_analyzer": 14,
+    "osintgram": 15,
+    "x_osint": 16,
+    "theharvester": 17,
+    "ghunt": 18,
+    "leaklooker": 19,
+    "findpeopleinfo": 20,
+    "spiderfoot": 21,
 }
 
 
