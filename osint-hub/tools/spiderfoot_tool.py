@@ -7,6 +7,7 @@ class SpiderfootTool(ToolWrapper):
     description = "Automated OSINT collection framework"
     accepts_input = ["email", "username", "domain", "phone"]
     category = "framework"
+    main_script = "sf.py"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

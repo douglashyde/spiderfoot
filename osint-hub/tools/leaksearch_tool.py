@@ -9,6 +9,7 @@ class LeakSearchTool(ToolWrapper):
     description = "Search 3.2B leaked credentials (ProxyNova COMB)"
     accepts_input = ["email", "username"]
     category = "breach"
+    main_script = "LeakSearch.py"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

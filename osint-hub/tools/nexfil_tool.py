@@ -9,6 +9,7 @@ class NexfilTool(ToolWrapper):
     description = "OSINT tool for finding profiles by username across 350+ sites"
     accepts_input = ["username"]
     category = "username_search"
+    main_script = "nexfil.py"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

@@ -9,6 +9,7 @@ class XOsintTool(ToolWrapper):
     description = "Twitter/X account OSINT and analysis"
     accepts_input = ["username"]
     category = "social"
+    main_script = "x-osint.py"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

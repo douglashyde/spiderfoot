@@ -3,7 +3,7 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(BASE_DIR)  # spiderfoot monorepo root
 TOOLS_DIR = os.path.join(REPO_ROOT, "tools-repos")
-HOME_DIR = "/home/user"
+HOME_DIR = os.path.expanduser("~")
 
 
 def _tool_path(dirname):

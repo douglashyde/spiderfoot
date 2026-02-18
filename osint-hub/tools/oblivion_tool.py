@@ -9,6 +9,11 @@ class OblivionTool(ToolWrapper):
     description = "Check leaked credentials via Scylla.so database"
     accepts_input = ["email", "username"]
     category = "breach"
+    main_script = "Linux/OblivionServer.py"
+
+    def is_available(self):
+        # Has API fallback to Scylla.so, so always available
+        return True
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

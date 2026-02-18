@@ -9,6 +9,7 @@ class BlackbirdTool(ToolWrapper):
     description = "Search usernames across online platforms"
     accepts_input = ["username"]
     category = "username_search"
+    main_script = "blackbird.py"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

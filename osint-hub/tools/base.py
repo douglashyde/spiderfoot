@@ -19,6 +19,8 @@ class ToolWrapper:
     pip_module = None
     # Set to a CLI command name to auto-detect CLI-available tools
     cli_command = None
+    # Set to the main script filename for repo-based tools (e.g. "blackbird.py")
+    main_script = None
 
     def __init__(self):
         self.tool_path = TOOL_PATHS.get(self.name, "")
@@ -35,8 +37,9 @@ class ToolWrapper:
                 return True
             except ImportError:
                 pass
-        # Directory alone is NOT sufficient - many repos exist but aren't runnable.
-        # Subclasses that need directory-based detection should override this method.
+        # Repo-based tool: check that main script exists in tool_path
+        if self.main_script and self.tool_path:
+            return os.path.isfile(os.path.join(self.tool_path, self.main_script))
         return False
 
     def _get_cwd(self):

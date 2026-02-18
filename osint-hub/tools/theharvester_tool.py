@@ -10,6 +10,8 @@ class TheHarvesterTool(ToolWrapper):
     description = "Gather emails, subdomains, IPs from public sources"
     accepts_input = ["domain", "email"]
     category = "email_osint"
+    cli_command = "theHarvester"
+    main_script = "theHarvester/__main__.py"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

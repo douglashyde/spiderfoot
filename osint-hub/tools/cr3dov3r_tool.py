@@ -8,6 +8,7 @@ class Cr3dOv3rTool(ToolWrapper):
     description = "Check if email credentials were leaked"
     accepts_input = ["email"]
     category = "breach"
+    main_script = "Cr3d0v3r.py"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

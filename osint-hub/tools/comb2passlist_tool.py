@@ -7,6 +7,7 @@ class Comb2PasslistTool(ToolWrapper):
     description = "Generate password list from COMB leaked credentials"
     accepts_input = ["username", "email"]
     category = "breach"
+    main_script = "comb2passlist.py"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

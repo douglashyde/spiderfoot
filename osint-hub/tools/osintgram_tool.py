@@ -8,6 +8,7 @@ class OsintgramTool(ToolWrapper):
     description = "Instagram OSINT - photos, followers, contacts, locations"
     accepts_input = ["username"]
     category = "social"
+    main_script = "main.py"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

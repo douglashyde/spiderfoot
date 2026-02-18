@@ -8,6 +8,7 @@ class GHuntTool(ToolWrapper):
     description = "Investigate Google accounts"
     accepts_input = ["email"]
     category = "social"
+    pip_module = "ghunt"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

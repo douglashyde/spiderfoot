@@ -9,6 +9,7 @@ class LeakLookerTool(ToolWrapper):
     description = "Search for exposed databases, servers, and leaked data"
     accepts_input = ["domain", "email"]
     category = "breach"
+    main_script = "leaklooker.py"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []

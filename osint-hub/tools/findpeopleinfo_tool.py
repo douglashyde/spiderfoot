@@ -9,6 +9,7 @@ class FindPeopleInfoTool(ToolWrapper):
     description = "Search for people by name, email, or phone"
     accepts_input = ["full_name", "email", "phone"]
     category = "social"
+    main_script = "findpeopleinfo.py"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []
