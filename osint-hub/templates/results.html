@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}OSINT Hub - Results{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-white">Scan Results</h2>
+        <div class="flex gap-3">
+            <button onclick="exportJSON()" class="px-4 py-2 bg-purple-900/40 text-purple-400 border border-purple-900/50 rounded-lg hover:bg-purple-900/60 transition text-sm">
+                Export JSON
+            </button>
+            <button onclick="location.href='/scan'" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-red-500 text-white rounded-lg hover:opacity-90 transition text-sm">
+                New Scan
+            </button>
+        </div>
+    </div>
+
+    <div id="results-loading" class="text-center py-20">
+        <p class="text-gray-500">Loading results...</p>
+    </div>
+
+    <div id="results-content" style="display:none">
+        <!-- Seeds -->
+        <div class="card rounded-lg p-5 mb-6">
+            <h3 class="text-lg font-semibold text-white mb-3">Target Seeds</h3>
+            <div id="seeds-display" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6" id="summary-stats"></div>
+
+        <!-- Findings -->
+        <div id="results-findings" class="space-y-4"></div>
+
+        <!-- Recommendations -->
+        <div id="recommendations-section" class="card rounded-lg p-5 mt-6" style="display:none">
+            <h3 class="text-lg font-semibold text-white mb-3">Suggested Next Steps</h3>
+            <div id="recommendations-list" class="space-y-2"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CATEGORY_CONFIG = {
+    social_profile: { label: 'Social Profiles', color: 'text-cyber-blue', icon: '&#127760;' },
+    registered_site: { label: 'Registered Sites', color: 'text-cyan-400', icon: '&#128274;' },
+    breach: { label: 'Data Breaches', color: 'text-cyber-red', icon: '&#9888;' },
+    email: { label: 'Emails', color: 'text-purple-400', icon: '&#9993;' },
+    related_email: { label: 'Related Emails', color: 'text-purple-300', icon: '&#9993;' },
+    username: { label: 'Usernames', color: 'text-cyber-green', icon: '&#128100;' },
+    related_username: { label: 'Related Usernames', color: 'text-green-300', icon: '&#128100;' },
+    phone: { label: 'Phones', color: 'text-yellow-400', icon: '&#128222;' },
+    related_phone: { label: 'Related Phones', color: 'text-yellow-300', icon: '&#128222;' },
+    full_name: { label: 'Names', color: 'text-white', icon: '&#128101;' },
+    location: { label: 'Locations', color: 'text-orange-400', icon: '&#128205;' },
+    photo_url: { label: 'Photos', color: 'text-pink-400', icon: '&#128247;' },
+    domain: { label: 'Domains', color: 'text-teal-400', icon: '&#127760;' },
+    ip_address: { label: 'IP Addresses', color: 'text-gray-300', icon: '&#128421;' },
+    organization: { label: 'Organizations', color: 'text-blue-300', icon: '&#127970;' },
+    raw: { label: 'Raw Intelligence', color: 'text-gray-400', icon: '&#128196;' },
+};
+
+let scanResults = null;
+
+function loadResults() {
+    Promise.all([
+        fetch('/api/scan/results').then(r => r.json()),
+        fetch('/api/scan/recommendations').then(r => r.json()),
+    ]).then(([results, recs]) => {
+        scanResults = results;
+        if (!results || !results.total_findings) {
+            document.getElementById('results-loading').innerHTML = '<p class="text-gray-500">No scan results yet. <a href="/scan" class="text-purple-400 hover:underline">Start a scan</a></p>';
+            return;
+        }
+        document.getElementById('results-loading').style.display = 'none';
+        document.getElementById('results-content').style.display = 'block';
+        renderSeeds(results.seeds);
+        renderSummary(results);
+        renderFindings(results.findings_by_type);
+        if (recs && recs.length > 0) renderRecommendations(recs);
+    });
+}
+
+function renderSeeds(seeds) {
+    const container = document.getElementById('seeds-display');
+    for (const [key, val] of Object.entries(seeds || {})) {
+        if (!val) continue;
+        container.innerHTML += `<span class="px-3 py-1.5 rounded-lg bg-purple-900/30 border border-purple-800/30 mono text-sm">
+            <span class="text-gray-500">${key}:</span> <span class="text-white">${val}</span>
+        </span>`;
+    }
+}
+
+function renderSummary(results) {
+    const fbt = results.findings_by_type || {};
+    const stats = [
+        { label: 'Total Findings', value: results.total_findings, color: 'text-cyber-green' },
+        { label: 'Tools Run', value: results.total_tool_runs, color: 'text-cyber-blue' },
+        { label: 'Profiles', value: (fbt.social_profile || []).length, color: 'text-purple-400' },
+        { label: 'Breaches', value: (fbt.breach || []).length, color: 'text-cyber-red' },
+        { label: 'Sites', value: (fbt.registered_site || []).length, color: 'text-cyan-400' },
+    ];
+    const container = document.getElementById('summary-stats');
+    for (const stat of stats) {
+        container.innerHTML += `<div class="card rounded-lg p-4 text-center">
+            <div class="text-3xl font-bold ${stat.color} mono">${stat.value}</div>
+            <div class="text-xs text-gray-500 mt-1">${stat.label}</div>
+        </div>`;
+    }
+}
+
+function renderFindings(fbt) {
+    const container = document.getElementById('results-findings');
+    const sortedTypes = Object.keys(fbt).sort((a, b) => (fbt[b] || []).length - (fbt[a] || []).length);
+
+    for (const ftype of sortedTypes) {
+        const items = fbt[ftype];
+        if (!items || items.length === 0) continue;
+        const config = CATEGORY_CONFIG[ftype] || { label: ftype, color: 'text-gray-400', icon: '&#128196;' };
+
+        let html = `<div class="card rounded-lg p-5">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold ${config.color}"><span class="mr-2">${config.icon}</span>${config.label}</h3>
+                <span class="mono text-sm ${config.color}">${items.length}</span>
+            </div>
+            <div class="space-y-2">`;
+
+        for (const item of items) {
+            const isUrl = (item.value || '').startsWith('http');
+            const confidence = Math.round((item.confidence || 0) * 100);
+            const meta = item.metadata || {};
+            const metaStr = Object.entries(meta).filter(([k]) => !['type'].includes(k)).map(([k, v]) => `${k}: ${v}`).join(' | ');
+
+            html += `<div class="p-3 rounded-lg bg-dark-900/50 border border-gray-800/50">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        ${isUrl ? `<a href="${item.value}" target="_blank" class="mono text-sm ${config.color} hover:underline break-all">${item.value}</a>`
+                               : `<span class="mono text-sm text-gray-200 break-all">${item.value}</span>`}
+                    </div>
+                    <div class="flex items-center gap-2 ml-4 flex-shrink-0">
+                        <span class="text-xs text-gray-600">${item.source_tool}</span>
+                        <div class="w-16 bg-dark-800 rounded-full h-1.5">
+                            <div class="h-1.5 rounded-full ${confidence > 80 ? 'bg-green-500' : confidence > 50 ? 'bg-yellow-500' : 'bg-gray-600'}" style="width:${confidence}%"></div>
+                        </div>
+                        <span class="mono text-xs text-gray-500">${confidence}%</span>
+                    </div>
+                </div>
+                ${metaStr ? `<div class="text-xs text-gray-600 mt-1 truncate">${metaStr}</div>` : ''}
+            </div>`;
+        }
+        html += '</div></div>';
+        container.innerHTML += html;
+    }
+}
+
+function renderRecommendations(recs) {
+    const section = document.getElementById('recommendations-section');
+    const container = document.getElementById('recommendations-list');
+    section.style.display = 'block';
+    for (const rec of recs.slice(0, 10)) {
+        container.innerHTML += `<div class="flex items-center justify-between py-2 px-3 rounded bg-purple-900/10 border border-purple-900/20">
+            <span class="text-sm text-gray-300">${rec.reason}</span>
+            <span class="mono text-xs text-purple-400">${rec.tool}</span>
+        </div>`;
+    }
+}
+
+function exportJSON() {
+    if (!scanResults) return;
+    const blob = new Blob([JSON.stringify(scanResults, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `osint-report-${scanResults.id || 'scan'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+loadResults();
+</script>
+{% endblock %}
