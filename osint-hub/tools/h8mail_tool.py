@@ -8,12 +8,14 @@ class H8mailTool(ToolWrapper):
     description = "Email OSINT and breach hunting"
     accepts_input = ["email"]
     category = "breach"
+    pip_module = "h8mail"
+    cli_command = "h8mail"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []
 
-        cmd = ["python", "-m", "h8mail", "-t", input_value]
-        raw = self._run_command(cmd, cwd=self.tool_path)
+        cmd = ["h8mail", "-t", input_value]
+        raw = self._run_command(cmd)
         tool_run.raw_output = raw
 
         # Parse h8mail output for breach info

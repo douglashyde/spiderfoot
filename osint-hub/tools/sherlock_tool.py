@@ -10,6 +10,8 @@ class SherlockTool(ToolWrapper):
     description = "Hunt usernames across 400+ social networks"
     accepts_input = ["username"]
     category = "username_search"
+    pip_module = "sherlock_project"
+    cli_command = "sherlock"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []
@@ -17,12 +19,12 @@ class SherlockTool(ToolWrapper):
         output_file = os.path.join(output_dir, f"{input_value}.json")
 
         cmd = [
-            "python", "-m", "sherlock", input_value,
+            "sherlock", input_value,
             "--json", output_file,
             "--timeout", "15",
             "--print-found",
         ]
-        raw = self._run_command(cmd, cwd=self.tool_path)
+        raw = self._run_command(cmd)
         tool_run.raw_output = raw
 
         # Parse JSON results

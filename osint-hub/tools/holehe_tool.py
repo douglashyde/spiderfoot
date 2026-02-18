@@ -1,5 +1,4 @@
 """Holehe - check which sites an email is registered on."""
-import json
 import re
 from .base import ToolWrapper, Finding, FindingType
 
@@ -9,19 +8,14 @@ class HoleheTool(ToolWrapper):
     description = "Check if email is registered on 120+ sites"
     accepts_input = ["email"]
     category = "email_osint"
-
-    def is_available(self):
-        try:
-            import holehe
-            return True
-        except ImportError:
-            return super().is_available()
+    pip_module = "holehe"
+    cli_command = "holehe"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []
 
         cmd = ["holehe", input_value, "--no-color"]
-        raw = self._run_command(cmd, cwd="/tmp")
+        raw = self._run_command(cmd)
         tool_run.raw_output = raw
 
         for line in raw.split("\n"):

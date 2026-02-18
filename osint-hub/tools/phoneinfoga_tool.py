@@ -1,6 +1,5 @@
 """PhoneInfoga - phone number OSINT."""
 import json
-import re
 from .base import ToolWrapper, Finding, FindingType
 
 
@@ -9,17 +8,17 @@ class PhoneInfogaTool(ToolWrapper):
     description = "Advanced phone number OSINT framework"
     accepts_input = ["phone"]
     category = "phone_osint"
+    cli_command = "phoneinfoga"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []
 
-        # Try the Go binary first, then Python
         cmd = ["phoneinfoga", "scan", "-n", input_value]
-        raw = self._run_command(cmd, cwd=self.tool_path)
+        raw = self._run_command(cmd)
 
         if "[ERROR]" in raw or "not found" in raw.lower():
             cmd = ["python", "phoneinfoga.py", "scan", "-n", input_value]
-            raw = self._run_command(cmd, cwd=self.tool_path)
+            raw = self._run_command(cmd)
 
         tool_run.raw_output = raw
 

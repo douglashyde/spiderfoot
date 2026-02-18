@@ -1,6 +1,5 @@
 """Social Analyzer - social media account detection."""
 import json
-import os
 from .base import ToolWrapper, Finding, FindingType
 
 
@@ -9,23 +8,24 @@ class SocialAnalyzerTool(ToolWrapper):
     description = "Detect social media accounts by username"
     accepts_input = ["username"]
     category = "username_search"
+    pip_module = "social_analyzer"
+    cli_command = "social-analyzer"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []
 
         cmd = [
-            "python", "-m", "social-analyzer",
+            "social-analyzer",
             "--username", input_value,
             "--metadata",
             "--output", "json",
             "--trim",
         ]
-        raw = self._run_command(cmd, cwd=self.tool_path, timeout=180)
+        raw = self._run_command(cmd, timeout=180)
         tool_run.raw_output = raw
 
         # Try to parse JSON from output
         try:
-            # social-analyzer may output JSON directly
             data = json.loads(raw)
             if isinstance(data, dict):
                 for site, info in data.items():
