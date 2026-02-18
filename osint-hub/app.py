@@ -6,6 +6,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, render_template, request, jsonify
 from engine.orchestrator import Orchestrator
+from engine.ai_analyst import (
+    analyze_profile, analyze_specific,
+    start_background_analysis, get_analysis_status, _ollama_available,
+)
 from tools.registry import get_all_tool_info
 
 app = Flask(__name__)
@@ -91,7 +95,6 @@ def api_dossier():
                             "source": f["source_tool"], "metadata": f.get("metadata", {})})
         return out
 
-    # Build dossier
     dossier = {
         "seeds": results.get("seeds", {}),
         "identities": {
@@ -123,6 +126,70 @@ def api_dossier():
         "tool_runs": results.get("tool_runs", []),
     }
     return jsonify(dossier)
+
+
+# --- AI Analysis endpoints ---
+
+@app.route("/api/ai/status")
+def api_ai_status():
+    """Check if AI analyst is available."""
+    return jsonify({"available": _ollama_available()})
+
+
+@app.route("/api/ai/analyze", methods=["POST"])
+def api_ai_analyze():
+    """Run full AI analysis on current scan results."""
+    dossier_resp = api_dossier()
+    dossier = dossier_resp.get_json()
+    if not dossier or not dossier.get("stats", {}).get("total_findings"):
+        return jsonify({"error": "No scan results to analyze"}), 400
+
+    # Check for profile_id to use background analysis
+    profile_id = orchestrator.profile.id if orchestrator.profile else "default"
+    cached = get_analysis_status(profile_id)
+    if cached["status"] == "complete" and cached["result"]:
+        return jsonify(cached["result"])
+
+    # Run synchronously for now (takes ~30-60s)
+    result = analyze_profile(dossier)
+    return jsonify(result)
+
+
+@app.route("/api/ai/analyze/start", methods=["POST"])
+def api_ai_analyze_start():
+    """Start AI analysis in background."""
+    dossier_resp = api_dossier()
+    dossier = dossier_resp.get_json()
+    if not dossier or not dossier.get("stats", {}).get("total_findings"):
+        return jsonify({"error": "No scan results to analyze"}), 400
+
+    profile_id = orchestrator.profile.id if orchestrator.profile else "default"
+    start_background_analysis(profile_id, dossier)
+    return jsonify({"status": "started", "profile_id": profile_id})
+
+
+@app.route("/api/ai/analyze/status")
+def api_ai_analyze_status():
+    """Check background analysis progress."""
+    profile_id = orchestrator.profile.id if orchestrator.profile else "default"
+    return jsonify(get_analysis_status(profile_id))
+
+
+@app.route("/api/ai/ask", methods=["POST"])
+def api_ai_ask():
+    """Ask the AI a specific question about the findings."""
+    data = request.json
+    question = data.get("question", "").strip()
+    if not question:
+        return jsonify({"error": "No question provided"}), 400
+
+    dossier_resp = api_dossier()
+    dossier = dossier_resp.get_json()
+    if not dossier or not dossier.get("stats", {}).get("total_findings"):
+        return jsonify({"error": "No scan results to analyze"}), 400
+
+    result = analyze_specific(dossier, question)
+    return jsonify(result)
 
 
 @app.route("/api/tools")
@@ -160,18 +227,24 @@ def api_tools_diagnose():
 
 
 if __name__ == "__main__":
-    # Print tool availability on startup
     from tools.registry import get_tools_for_input
     port = int(os.environ.get("PORT", 5000))
     host = os.environ.get("HOST", "0.0.0.0")
+
+    # Check AI status
+    ai_ok = _ollama_available()
+
     print(f"""
     ╔══════════════════════════════════════════╗
-    ║          OSINT Hub v1.0                  ║
+    ║          OSINT Hub v2.0                  ║
     ║   Unified OSINT Intelligence Platform    ║
+    ║   + AI-Powered Analysis (Ollama)         ║
     ╠══════════════════════════════════════════╣
     ║   http://{host}:{port}                   ║
     ╚══════════════════════════════════════════╝
     """)
+    print(f"  AI Analyst: {'[OK] Mistral 7B via Ollama' if ai_ok else '[--] Not available (run: ollama pull mistral:7b)'}")
+
     all_info = get_all_tool_info()
     available = [t for t in all_info if t["available"]]
     unavailable = [t for t in all_info if not t["available"]]
