@@ -8,21 +8,21 @@
     <div class="lg:col-span-1">
         <div class="card rounded-lg p-6 sticky top-20">
             <h2 class="text-xl font-semibold text-white mb-1">Target Information</h2>
-            <p class="text-sm text-gray-400 mb-6">Provide as much detail as possible for accurate results. More inputs = better cross-referencing.</p>
+            <p class="text-sm text-gray-400 mb-6">Provide as much detail as possible. More inputs = better cross-referencing.</p>
 
             <form id="scan-form" class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Email Address</label>
                     <input type="email" name="email" id="input-email" placeholder="target@example.com"
                         class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
-                    <p class="text-xs text-gray-500 mt-1">Checks: holehe, breaches, theHarvester, GHunt</p>
+                    <p class="text-xs text-gray-500 mt-1">Checks: holehe, h8mail, xposedornot</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Username(s)</label>
                     <input type="text" name="username" id="input-username" placeholder="johndoe"
                         class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
-                    <p class="text-xs text-gray-500 mt-1">Checks: sherlock, maigret, blackbird, nexfil (comma-separate multiple)</p>
+                    <p class="text-xs text-gray-500 mt-1">Checks: sherlock, maigret (comma-separate multiple)</p>
                 </div>
 
                 <div>
@@ -46,6 +46,8 @@
                     <p class="text-xs text-gray-500 mt-1">Checks: theHarvester, spiderfoot</p>
                 </div>
 
+                <div id="form-error" class="p-3 rounded bg-red-900/20 border border-red-800/30 text-sm text-red-400" style="display:none"></div>
+
                 <div class="pt-2 space-y-3">
                     <button type="submit" id="btn-start"
                         class="w-full py-3 bg-gradient-to-r from-purple-600 to-red-500 text-white font-semibold rounded-lg hover:opacity-90 transition">
@@ -55,6 +57,10 @@
                         class="w-full py-3 bg-red-900/40 text-red-400 border border-red-900/50 font-semibold rounded-lg hover:bg-red-900/60 transition">
                         Stop Scan
                     </button>
+                    <a href="/results" id="btn-report" style="display:none"
+                        class="block w-full py-3 bg-gradient-to-r from-cyan-600 to-purple-500 text-white font-semibold rounded-lg hover:opacity-90 transition text-center">
+                        View Full Dossier
+                    </a>
                 </div>
             </form>
 
@@ -71,6 +77,13 @@
     <!-- Right: Live Dashboard -->
     <div class="lg:col-span-2 space-y-6">
 
+        <!-- Idle state -->
+        <div id="idle-section" class="card rounded-lg p-12 text-center">
+            <div class="text-6xl mb-4 opacity-30">&#128373;</div>
+            <p class="text-gray-500 text-lg">Enter target information and click <strong class="text-purple-400">Launch Scan</strong></p>
+            <p class="text-gray-600 text-sm mt-2">The engine will run all available tools and build a unified intelligence profile</p>
+        </div>
+
         <!-- Progress Bar -->
         <div id="progress-section" class="card rounded-lg p-4" style="display:none">
             <div class="flex items-center justify-between mb-2">
@@ -81,7 +94,7 @@
                 <div id="progress-bar" class="h-2 rounded-full bg-gradient-to-r from-purple-600 to-cyan-400 transition-all duration-500" style="width:0%"></div>
             </div>
             <div class="overflow-hidden h-1 mt-1">
-                <div class="scan-line w-full h-full"></div>
+                <div id="scan-line-anim" class="scan-line w-full h-full"></div>
             </div>
         </div>
 
@@ -105,9 +118,19 @@
             </div>
         </div>
 
+        <!-- Completion banner -->
+        <div id="complete-banner" class="card rounded-lg p-6 border-l-4 border-cyber-green text-center" style="display:none">
+            <div class="text-3xl mb-2">&#9989;</div>
+            <h3 class="text-xl font-bold text-white mb-1">Scan Complete</h3>
+            <p class="text-gray-400 text-sm mb-4" id="complete-summary"></p>
+            <a href="/results" class="inline-block px-8 py-3 bg-gradient-to-r from-cyan-600 to-purple-500 text-white font-semibold rounded-lg hover:opacity-90 transition">
+                View Full Intelligence Dossier
+            </a>
+        </div>
+
         <!-- Findings by Category -->
         <div id="findings-section" style="display:none">
-            <h3 class="text-lg font-semibold text-white mb-3">Findings</h3>
+            <h3 class="text-lg font-semibold text-white mb-3">Live Findings</h3>
             <div class="space-y-3" id="findings-container"></div>
         </div>
 
@@ -154,16 +177,33 @@ const STATUS_COLORS = {
 };
 
 let polling = null;
+let scanStarted = false;
 
 document.getElementById('scan-form').addEventListener('submit', function(e) {
     e.preventDefault();
+
+    const errEl = document.getElementById('form-error');
+    errEl.style.display = 'none';
+
     const data = {
-        email: document.getElementById('input-email').value,
-        username: document.getElementById('input-username').value,
-        phone: document.getElementById('input-phone').value,
-        full_name: document.getElementById('input-fullname').value,
-        domain: document.getElementById('input-domain').value,
+        email: document.getElementById('input-email').value.trim(),
+        username: document.getElementById('input-username').value.trim(),
+        phone: document.getElementById('input-phone').value.trim(),
+        full_name: document.getElementById('input-fullname').value.trim(),
+        domain: document.getElementById('input-domain').value.trim(),
     };
+
+    if (!data.email && !data.username && !data.phone && !data.full_name && !data.domain) {
+        errEl.textContent = 'Please provide at least one piece of information.';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    // Disable form
+    const btn = document.getElementById('btn-start');
+    btn.disabled = true;
+    btn.textContent = 'Starting...';
+    btn.classList.add('opacity-50');
 
     fetch('/api/scan/start', {
         method: 'POST',
@@ -173,17 +213,39 @@ document.getElementById('scan-form').addEventListener('submit', function(e) {
     .then(r => r.json())
     .then(result => {
         if (result.error) {
-            alert(result.error);
+            errEl.textContent = result.error;
+            errEl.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Launch Scan';
+            btn.classList.remove('opacity-50');
             return;
         }
-        document.getElementById('btn-start').style.display = 'none';
+        scanStarted = true;
+
+        // Switch UI to scanning mode
+        document.getElementById('idle-section').style.display = 'none';
+        btn.style.display = 'none';
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
         document.getElementById('btn-stop').style.display = 'block';
         document.getElementById('progress-section').style.display = 'block';
         document.getElementById('stats-section').style.display = 'grid';
         document.getElementById('findings-section').style.display = 'block';
         document.getElementById('tool-runs-section').style.display = 'block';
         document.getElementById('log-section').style.display = 'block';
+        document.getElementById('complete-banner').style.display = 'none';
+
+        // Disable inputs during scan
+        document.querySelectorAll('#scan-form input').forEach(i => i.disabled = true);
+
         startPolling();
+    })
+    .catch(err => {
+        errEl.textContent = 'Failed to start scan: ' + err.message;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Launch Scan';
+        btn.classList.remove('opacity-50');
     });
 });
 
@@ -193,7 +255,7 @@ document.getElementById('btn-stop').addEventListener('click', function() {
 
 function startPolling() {
     if (polling) clearInterval(polling);
-    polling = setInterval(pollStatus, 1500);
+    polling = setInterval(pollStatus, 2000);
     pollStatus();
 }
 
@@ -209,20 +271,42 @@ function pollStatus() {
 
         if (status.phase === 'complete') {
             clearInterval(polling);
+            polling = null;
+
+            // Show completion UI
             document.getElementById('btn-stop').style.display = 'none';
+            document.getElementById('btn-report').style.display = 'block';
             document.getElementById('btn-start').style.display = 'block';
-            document.getElementById('btn-start').textContent = 'Run Again';
-            document.getElementById('progress-label').textContent = 'Scan Complete';
+            document.getElementById('btn-start').textContent = 'New Scan';
+            document.getElementById('scan-line-anim').style.display = 'none';
+            document.querySelectorAll('#scan-form input').forEach(i => i.disabled = false);
+
+            // Show completion banner
+            const total = results.total_findings || 0;
+            const runs = results.total_tool_runs || 0;
+            const profiles = (results.findings_by_type?.social_profile || []).length;
+            const breaches = (results.findings_by_type?.breach || []).length;
+            document.getElementById('complete-summary').textContent =
+                `${total} findings from ${runs} tool runs | ${profiles} social profiles | ${breaches} breaches`;
+            document.getElementById('complete-banner').style.display = 'block';
         }
-    }).catch(() => {});
+    }).catch(err => {
+        console.error('Poll error:', err);
+    });
 }
 
 function updateProgress(status) {
-    document.getElementById('progress-bar').style.width = status.progress + '%';
-    document.getElementById('progress-pct').textContent = status.progress + '%';
-    const phases = { scanning: 'Scanning...', correlating: 'Cross-referencing...', chaining: `Chasing leads (depth ${status.chain_depth})...`, complete: 'Complete' };
-    document.getElementById('progress-label').textContent =
-        (status.current_tool ? `Running ${status.current_tool}` : (phases[status.phase] || status.phase));
+    const pct = Math.min(status.progress || 0, 100);
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-pct').textContent = pct + '%';
+    const phases = {
+        scanning: 'Scanning...',
+        correlating: 'Cross-referencing...',
+        chaining: `Chasing leads (depth ${status.chain_depth})...`,
+        complete: 'Scan Complete'
+    };
+    const label = status.current_tool ? `Running ${status.current_tool}...` : (phases[status.phase] || status.phase);
+    document.getElementById('progress-label').textContent = label;
 }
 
 function updateLog(status) {
@@ -299,13 +383,14 @@ function updateToolRuns(results) {
     container.innerHTML = '';
 
     for (const run of results.tool_runs) {
-        const statusClass = STATUS_COLORS[run.status] || 'text-gray-500';
+        const status = run.status || 'unknown';
+        const color = STATUS_COLORS[status] || 'text-gray-500';
         const findingCount = (run.findings || []).length;
-        const statusIcon = run.status === 'completed' ? '&#10003;' : (run.status === 'running' ? '&#9679;' : (run.status === 'failed' ? '&#10007;' : '&#8226;'));
+        const statusIcon = status === 'completed' ? '&#10003;' : (status === 'running' ? '&#9679;' : (status === 'failed' ? '&#10007;' : '&#8226;'));
 
         container.innerHTML += `<div class="flex items-center justify-between py-2 px-3 card rounded">
             <div class="flex items-center gap-3">
-                <span class="${statusClass}">${statusIcon}</span>
+                <span class="${color}">${statusIcon}</span>
                 <span class="text-sm text-white font-medium">${run.tool_name}</span>
                 <span class="text-xs text-gray-500 mono">${run.input_value}</span>
             </div>
@@ -316,5 +401,31 @@ function updateToolRuns(results) {
         </div>`;
     }
 }
+
+// On page load: check if a scan is already running (e.g. page refresh mid-scan)
+fetch('/api/scan/status').then(r => r.json()).then(status => {
+    if (status.phase === 'scanning' || status.phase === 'chaining' || status.phase === 'correlating') {
+        // A scan is in progress - show live view
+        scanStarted = true;
+        document.getElementById('idle-section').style.display = 'none';
+        document.getElementById('btn-start').style.display = 'none';
+        document.getElementById('btn-stop').style.display = 'block';
+        document.getElementById('progress-section').style.display = 'block';
+        document.getElementById('stats-section').style.display = 'grid';
+        document.getElementById('findings-section').style.display = 'block';
+        document.getElementById('tool-runs-section').style.display = 'block';
+        document.getElementById('log-section').style.display = 'block';
+        startPolling();
+    } else if (status.phase === 'complete' && status.finished_at) {
+        // Previous scan completed - show results link
+        document.getElementById('idle-section').innerHTML = `
+            <div class="text-6xl mb-4 opacity-50">&#9989;</div>
+            <p class="text-gray-400 text-lg">Previous scan completed</p>
+            <div class="mt-4 flex gap-3 justify-center">
+                <a href="/results" class="px-6 py-2 bg-gradient-to-r from-cyan-600 to-purple-500 text-white font-semibold rounded-lg hover:opacity-90 transition">View Results</a>
+            </div>
+        `;
+    }
+}).catch(() => {});
 </script>
 {% endblock %}

@@ -6,7 +6,7 @@
     <div class="flex items-center justify-between">
         <h2 class="text-2xl font-bold text-white">Intelligence Dossier</h2>
         <div class="flex gap-3">
-            <button onclick="exportJSON()" class="px-4 py-2 bg-purple-900/40 text-purple-400 border border-purple-900/50 rounded-lg hover:bg-purple-900/60 transition text-sm">
+            <button onclick="exportJSON()" id="btn-export" class="px-4 py-2 bg-purple-900/40 text-purple-400 border border-purple-900/50 rounded-lg hover:bg-purple-900/60 transition text-sm" style="display:none">
                 Export JSON
             </button>
             <button onclick="location.href='/scan'" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-red-500 text-white rounded-lg hover:opacity-90 transition text-sm">
@@ -15,6 +15,29 @@
         </div>
     </div>
 
+    <!-- Scan in progress -->
+    <div id="results-scanning" style="display:none">
+        <div class="card rounded-lg p-6 text-center">
+            <div class="text-4xl mb-3 pulse-dot">&#9679;</div>
+            <h3 class="text-lg font-semibold text-white mb-2">Scan In Progress</h3>
+            <p class="text-gray-400 text-sm mb-4" id="scanning-status">Running tools...</p>
+            <div class="w-full max-w-md mx-auto bg-dark-900 rounded-full h-2 mb-4">
+                <div id="scanning-bar" class="h-2 rounded-full bg-gradient-to-r from-purple-600 to-cyan-400 transition-all duration-500" style="width:0%"></div>
+            </div>
+            <a href="/scan" class="text-purple-400 hover:underline text-sm">View live scan dashboard</a>
+        </div>
+    </div>
+
+    <!-- No results -->
+    <div id="results-empty" style="display:none">
+        <div class="card rounded-lg p-12 text-center">
+            <div class="text-6xl mb-4 opacity-30">&#128373;</div>
+            <p class="text-gray-500 text-lg">No scan results yet</p>
+            <a href="/scan" class="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-purple-600 to-red-500 text-white rounded-lg hover:opacity-90 transition">Start a Scan</a>
+        </div>
+    </div>
+
+    <!-- Loading -->
     <div id="results-loading" class="text-center py-20">
         <p class="text-gray-500">Loading results...</p>
     </div>
@@ -70,7 +93,7 @@
                 <!-- BREACHES -->
                 <div id="section-breaches" class="card rounded-lg p-5 border-l-4 border-red-500" style="display:none">
                     <h3 class="text-lg font-semibold text-red-400 mb-4">&#9888; Data Breaches</h3>
-                    <div id="breaches-list" class="space-y-2"></div>
+                    <div id="breaches-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
                 </div>
 
                 <!-- RAW INTEL -->
@@ -104,6 +127,45 @@
 <script>
 let scanResults = null;
 let dossierData = null;
+let resultsPoll = null;
+
+function init() {
+    // First check scan status
+    fetch('/api/scan/status').then(r => r.json()).then(status => {
+        if (status.phase === 'scanning' || status.phase === 'chaining' || status.phase === 'correlating') {
+            // Scan is running - show progress and poll
+            document.getElementById('results-loading').style.display = 'none';
+            document.getElementById('results-scanning').style.display = 'block';
+            pollForCompletion();
+        } else if (status.phase === 'complete') {
+            // Scan is done - load results
+            loadResults();
+        } else {
+            // No scan yet
+            document.getElementById('results-loading').style.display = 'none';
+            document.getElementById('results-empty').style.display = 'block';
+        }
+    }).catch(() => {
+        loadResults();
+    });
+}
+
+function pollForCompletion() {
+    resultsPoll = setInterval(() => {
+        fetch('/api/scan/status').then(r => r.json()).then(status => {
+            const pct = Math.min(status.progress || 0, 100);
+            document.getElementById('scanning-bar').style.width = pct + '%';
+            const tool = status.current_tool ? `Running ${status.current_tool}...` : (status.phase || 'Processing...');
+            document.getElementById('scanning-status').textContent = `${tool} (${pct}%)`;
+
+            if (status.phase === 'complete') {
+                clearInterval(resultsPoll);
+                document.getElementById('results-scanning').style.display = 'none';
+                loadResults();
+            }
+        });
+    }, 2000);
+}
 
 function loadResults() {
     Promise.all([
@@ -112,13 +174,18 @@ function loadResults() {
     ]).then(([results, dossier]) => {
         scanResults = results;
         dossierData = dossier;
+        document.getElementById('results-loading').style.display = 'none';
+
         if (!results || !results.total_findings) {
-            document.getElementById('results-loading').innerHTML = '<p class="text-gray-500">No scan results yet. <a href="/scan" class="text-purple-400 hover:underline">Start a scan</a></p>';
+            document.getElementById('results-empty').style.display = 'block';
             return;
         }
-        document.getElementById('results-loading').style.display = 'none';
         document.getElementById('results-content').style.display = 'block';
+        document.getElementById('btn-export').style.display = 'block';
         renderDossier(dossier);
+    }).catch(() => {
+        document.getElementById('results-loading').style.display = 'none';
+        document.getElementById('results-empty').style.display = 'block';
     });
 }
 
@@ -138,22 +205,19 @@ function renderPersonHeader(d) {
     const seeds = d.seeds || {};
     const ids = d.identities || {};
 
-    // Name
     const name = seeds.full_name || seeds.username || seeds.email?.split('@')[0] || 'Unknown Subject';
     document.getElementById('person-name').textContent = name;
 
-    // Identifier badges
     const container = document.getElementById('person-identifiers');
     const allIds = [
-        ...(ids.emails || []).map(e => ({label: e, type: 'email', color: 'purple'})),
-        ...(ids.usernames || []).map(u => ({label: u, type: 'user', color: 'green'})),
-        ...(ids.phones || []).map(p => ({label: p, type: 'phone', color: 'yellow'})),
+        ...(ids.emails || []).map(e => ({label: e, color: 'purple'})),
+        ...(ids.usernames || []).map(u => ({label: u, color: 'green'})),
+        ...(ids.phones || []).map(p => ({label: p, color: 'yellow'})),
     ];
     for (const id of allIds) {
         container.innerHTML += `<span class="px-2.5 py-1 rounded-full bg-${id.color}-900/30 border border-${id.color}-800/40 text-${id.color}-300 text-xs mono">${id.label}</span>`;
     }
 
-    // Summary line
     const s = d.stats;
     document.getElementById('person-summary').textContent =
         `${s.profiles_found} social profiles found across ${s.tools_run} tools | ${s.breaches_found} breaches | ${s.sites_registered} site registrations | ${s.total_findings} total findings`;
@@ -182,7 +246,6 @@ function renderProfiles(profiles) {
     document.getElementById('section-profiles').style.display = 'block';
     const container = document.getElementById('profiles-list');
 
-    // Group by site/platform
     for (const p of profiles) {
         const url = p.value;
         const site = p.metadata?.site || extractDomain(url);
@@ -326,6 +389,6 @@ function exportJSON() {
     URL.revokeObjectURL(url);
 }
 
-loadResults();
+init();
 </script>
 {% endblock %}
