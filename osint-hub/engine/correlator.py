@@ -16,8 +16,10 @@ class Correlator:
         """Run all correlation rules on current findings."""
         self._extract_usernames_from_profiles()
         self._extract_emails_from_raw()
+        self._extract_emails_from_credentials()
         self._extract_phones_from_raw()
         self._link_breach_to_email()
+        self._link_credentials_to_breaches()
         self._link_profiles_to_usernames()
         self._calculate_confidence_scores()
         return self.profile
@@ -86,6 +88,33 @@ class Correlator:
                     self.profile.add_finding(finding)
                     existing_emails.add(email.lower())
 
+    def _extract_emails_from_credentials(self):
+        """Extract email addresses from leaked credential findings."""
+        cred_findings = self.profile.get_findings_by_type(FindingType.LEAKED_CREDENTIAL)
+        email_pattern = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+        existing_emails = {f.value.lower() for f in self.profile.findings
+                          if f.type in (FindingType.EMAIL, FindingType.RELATED_EMAIL)}
+        for cred in cred_findings:
+            # Check both the value and the identity metadata
+            text_to_check = str(cred.value)
+            identity = cred.metadata.get("identity", "")
+            if identity:
+                text_to_check += " " + identity
+
+            emails = email_pattern.findall(text_to_check)
+            for email in emails:
+                if email.lower() not in existing_emails:
+                    finding = Finding(
+                        FindingType.RELATED_EMAIL,
+                        email.lower(),
+                        source_tool=f"correlator (from {cred.source_tool})",
+                        confidence=0.65,
+                        metadata={"found_in_credential": True},
+                    )
+                    finding.linked_to.append(cred.id)
+                    self.profile.add_finding(finding)
+                    existing_emails.add(email.lower())
+
     def _extract_phones_from_raw(self):
         """Find phone numbers in raw findings."""
         raw_findings = self.profile.get_findings_by_type(FindingType.RAW)
@@ -117,6 +146,30 @@ class Correlator:
                     if email_finding.value.lower() == breach_email.lower():
                         if email_finding.id not in breach.linked_to:
                             breach.linked_to.append(email_finding.id)
+
+    def _link_credentials_to_breaches(self):
+        """Link leaked credentials to their associated breaches and emails."""
+        credentials = self.profile.get_findings_by_type(FindingType.LEAKED_CREDENTIAL)
+        breaches = self.profile.get_findings_by_type(FindingType.BREACH)
+        emails = self.profile.get_findings_by_type(FindingType.EMAIL)
+
+        for cred in credentials:
+            cred_email = cred.metadata.get("email", cred.metadata.get("identity", ""))
+
+            # Link to matching email findings
+            if cred_email:
+                for email_finding in emails:
+                    if email_finding.value.lower() == cred_email.lower():
+                        if email_finding.id not in cred.linked_to:
+                            cred.linked_to.append(email_finding.id)
+
+            # Link to matching breach findings
+            cred_breach = cred.metadata.get("breach", "")
+            if cred_breach:
+                for breach in breaches:
+                    if cred_breach.lower() in breach.value.lower() or breach.value.lower() in cred_breach.lower():
+                        if breach.id not in cred.linked_to:
+                            cred.linked_to.append(breach.id)
 
     def _link_profiles_to_usernames(self):
         """Link social profiles to their usernames."""

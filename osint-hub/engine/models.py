@@ -23,6 +23,7 @@ class FindingType(str, Enum):
     RELATED_EMAIL = "related_email"
     RELATED_USERNAME = "related_username"
     RELATED_PHONE = "related_phone"
+    LEAKED_CREDENTIAL = "leaked_credential"
     RAW = "raw"
 
 

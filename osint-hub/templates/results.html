@@ -1,15 +1,12 @@
 {% extends "base.html" %}
-{% block title %}OSINT Hub - Intelligence Dossier{% endblock %}
+{% block title %}OSINT Hub - Results{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-bold text-white">Intelligence Dossier</h2>
+        <h2 class="text-2xl font-bold text-white">Scan Results</h2>
         <div class="flex gap-3">
-            <button onclick="runAiAnalysis()" id="btn-ai" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition text-sm" style="display:none">
-                AI Analysis
-            </button>
-            <button onclick="exportJSON()" id="btn-export" class="px-4 py-2 bg-purple-900/40 text-purple-400 border border-purple-900/50 rounded-lg hover:bg-purple-900/60 transition text-sm" style="display:none">
+            <button onclick="exportJSON()" class="px-4 py-2 bg-purple-900/40 text-purple-400 border border-purple-900/50 rounded-lg hover:bg-purple-900/60 transition text-sm">
                 Export JSON
             </button>
             <button onclick="location.href='/scan'" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-red-500 text-white rounded-lg hover:opacity-90 transition text-sm">
@@ -18,491 +15,239 @@
         </div>
     </div>
 
-    <!-- Scan in progress -->
-    <div id="results-scanning" style="display:none">
-        <div class="card rounded-lg p-6 text-center">
-            <div class="text-4xl mb-3 pulse-dot">&#9679;</div>
-            <h3 class="text-lg font-semibold text-white mb-2">Scan In Progress</h3>
-            <p class="text-gray-400 text-sm mb-4" id="scanning-status">Running tools...</p>
-            <div class="w-full max-w-md mx-auto bg-dark-900 rounded-full h-2 mb-4">
-                <div id="scanning-bar" class="h-2 rounded-full bg-gradient-to-r from-purple-600 to-cyan-400 transition-all duration-500" style="width:0%"></div>
-            </div>
-            <a href="/scan" class="text-purple-400 hover:underline text-sm">View live scan dashboard</a>
-        </div>
-    </div>
-
-    <!-- No results -->
-    <div id="results-empty" style="display:none">
-        <div class="card rounded-lg p-12 text-center">
-            <div class="text-6xl mb-4 opacity-30">&#128373;</div>
-            <p class="text-gray-500 text-lg">No scan results yet</p>
-            <a href="/scan" class="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-purple-600 to-red-500 text-white rounded-lg hover:opacity-90 transition">Start a Scan</a>
-        </div>
-    </div>
-
-    <!-- Loading -->
     <div id="results-loading" class="text-center py-20">
         <p class="text-gray-500">Loading results...</p>
     </div>
 
     <div id="results-content" style="display:none">
-
-        <!-- PERSON HEADER -->
-        <div id="person-header" class="card rounded-lg p-6 mb-6 border-l-4 border-purple-500">
-            <div class="flex items-start gap-6">
-                <div class="w-20 h-20 rounded-full bg-gradient-to-br from-purple-600 to-red-500 flex items-center justify-center text-3xl flex-shrink-0">
-                    &#128373;
-                </div>
-                <div class="flex-1">
-                    <h1 id="person-name" class="text-2xl font-bold text-white mb-2"></h1>
-                    <div id="person-identifiers" class="flex flex-wrap gap-2 mb-3"></div>
-                    <div id="person-summary" class="text-sm text-gray-400"></div>
-                </div>
-            </div>
+        <!-- Seeds -->
+        <div class="card rounded-lg p-5 mb-6">
+            <h3 class="text-lg font-semibold text-white mb-3">Target Seeds</h3>
+            <div id="seeds-display" class="flex flex-wrap gap-2"></div>
         </div>
 
-        <!-- STAT CARDS -->
+        <!-- Summary Stats -->
         <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6" id="summary-stats"></div>
 
-        <!-- AI ANALYSIS PANEL -->
-        <div id="ai-panel" class="card rounded-lg p-6 mb-6 border-l-4 border-blue-500" style="display:none">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-blue-400">&#129302; AI Intelligence Analysis</h3>
-                <span id="ai-status-badge" class="text-xs px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-400">Ready</span>
-            </div>
-            <div id="ai-loading" style="display:none" class="text-center py-8">
-                <div class="text-2xl pulse-dot mb-2">&#129302;</div>
-                <p class="text-gray-400 text-sm">Analyzing findings with Mistral 7B...</p>
-                <p class="text-gray-600 text-xs mt-1">This takes 30-60 seconds</p>
-            </div>
-            <div id="ai-result" class="prose prose-invert max-w-none text-sm leading-relaxed" style="display:none"></div>
-            <!-- AI Chat -->
-            <div id="ai-chat" class="mt-4 pt-4 border-t border-gray-800" style="display:none">
-                <div class="flex gap-2">
-                    <input type="text" id="ai-question" placeholder="Ask the AI about these findings..."
-                        class="flex-1 bg-dark-900 border border-blue-900/30 rounded-lg px-4 py-2 text-white placeholder-gray-600 focus:border-blue-500 focus:outline-none text-sm">
-                    <button onclick="askAi()" id="btn-ask" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">Ask</button>
-                </div>
-                <div id="ai-chat-history" class="mt-3 space-y-3 max-h-64 overflow-y-auto"></div>
-            </div>
-        </div>
+        <!-- Findings -->
+        <div id="results-findings" class="space-y-4"></div>
 
-        <!-- MAIN GRID: 2 columns -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-            <!-- LEFT: Digital Footprint -->
-            <div class="space-y-6">
-                <div id="section-profiles" class="card rounded-lg p-5" style="display:none">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-cyber-blue">&#127760; Social Profiles</h3>
-                        <span id="profiles-count" class="mono text-xs text-cyber-blue"></span>
-                    </div>
-                    <div id="profiles-list" class="space-y-1.5 max-h-[500px] overflow-y-auto"></div>
-                </div>
-
-                <div id="section-sites" class="card rounded-lg p-5" style="display:none">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-cyan-400">&#128274; Registered Accounts</h3>
-                        <span id="sites-count" class="mono text-xs text-cyan-400"></span>
-                    </div>
-                    <div id="sites-list" class="flex flex-wrap gap-2"></div>
-                </div>
-
-                <div id="section-identities" class="card rounded-lg p-5" style="display:none">
-                    <h3 class="text-lg font-semibold text-green-400 mb-4">&#128279; Connected Identities</h3>
-                    <div id="identities-content" class="space-y-3"></div>
-                </div>
-            </div>
-
-            <!-- RIGHT: Security / Breaches -->
-            <div class="space-y-6">
-                <div id="section-breaches" class="card rounded-lg p-5 border-l-4 border-red-500" style="display:none">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-red-400">&#9888; Data Breaches</h3>
-                        <span id="breaches-count" class="mono text-xs text-red-400"></span>
-                    </div>
-                    <div id="breaches-list" class="space-y-2 max-h-[500px] overflow-y-auto"></div>
-                </div>
-
-                <div id="section-intel" class="card rounded-lg p-5" style="display:none">
-                    <h3 class="text-lg font-semibold text-yellow-400 mb-4">&#128196; Raw Intelligence</h3>
-                    <div id="intel-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
-                </div>
-
-                <div id="section-geo" class="card rounded-lg p-5" style="display:none">
-                    <h3 class="text-lg font-semibold text-orange-400 mb-4">&#128205; Locations</h3>
-                    <div id="geo-list" class="space-y-2"></div>
-                </div>
-
-                <div id="section-tools" class="card rounded-lg p-5">
-                    <h3 class="text-lg font-semibold text-gray-400 mb-4 cursor-pointer" onclick="toggleToolRuns()">
-                        &#9881; Tool Execution Log <span class="text-xs">(click to expand)</span>
-                    </h3>
-                    <div id="tools-list" class="space-y-1 max-h-80 overflow-y-auto" style="display:none"></div>
-                </div>
-            </div>
+        <!-- Recommendations -->
+        <div id="recommendations-section" class="card rounded-lg p-5 mt-6" style="display:none">
+            <h3 class="text-lg font-semibold text-white mb-3">Suggested Next Steps</h3>
+            <div id="recommendations-list" class="space-y-2"></div>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<style>
-    #ai-result h2 { font-size: 1.1rem; font-weight: 700; color: #60a5fa; margin-top: 1.2rem; margin-bottom: 0.5rem; }
-    #ai-result h3 { font-size: 1rem; font-weight: 600; color: #93c5fd; margin-top: 1rem; margin-bottom: 0.4rem; }
-    #ai-result ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
-    #ai-result li { margin: 0.25rem 0; color: #d1d5db; }
-    #ai-result p { margin: 0.5rem 0; color: #d1d5db; }
-    #ai-result strong { color: #f9fafb; }
-    #ai-result code { background: rgba(15,15,35,0.8); padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-size: 0.85em; color: #a78bfa; }
-</style>
 <script>
+const CATEGORY_CONFIG = {
+    social_profile: { label: 'Social Profiles', color: 'text-cyber-blue', icon: '&#127760;' },
+    registered_site: { label: 'Registered Sites', color: 'text-cyan-400', icon: '&#128274;' },
+    leaked_credential: { label: 'Leaked Credentials', color: 'text-red-500', icon: '&#128272;' },
+    breach: { label: 'Data Breaches', color: 'text-cyber-red', icon: '&#9888;' },
+    email: { label: 'Emails', color: 'text-purple-400', icon: '&#9993;' },
+    related_email: { label: 'Related Emails', color: 'text-purple-300', icon: '&#9993;' },
+    username: { label: 'Usernames', color: 'text-cyber-green', icon: '&#128100;' },
+    related_username: { label: 'Related Usernames', color: 'text-green-300', icon: '&#128100;' },
+    phone: { label: 'Phones', color: 'text-yellow-400', icon: '&#128222;' },
+    related_phone: { label: 'Related Phones', color: 'text-yellow-300', icon: '&#128222;' },
+    full_name: { label: 'Names', color: 'text-white', icon: '&#128101;' },
+    location: { label: 'Locations', color: 'text-orange-400', icon: '&#128205;' },
+    photo_url: { label: 'Photos', color: 'text-pink-400', icon: '&#128247;' },
+    domain: { label: 'Domains', color: 'text-teal-400', icon: '&#127760;' },
+    ip_address: { label: 'IP Addresses', color: 'text-gray-300', icon: '&#128421;' },
+    organization: { label: 'Organizations', color: 'text-blue-300', icon: '&#127970;' },
+    raw: { label: 'Raw Intelligence', color: 'text-gray-400', icon: '&#128196;' },
+};
+
+// Priority ordering for display
+const CATEGORY_ORDER = [
+    'leaked_credential', 'social_profile', 'breach', 'registered_site',
+    'email', 'related_email', 'username', 'related_username',
+    'phone', 'related_phone', 'full_name', 'photo_url',
+    'location', 'domain', 'ip_address', 'organization', 'raw',
+];
+
 let scanResults = null;
-let dossierData = null;
-let resultsPoll = null;
-let aiAvailable = false;
-
-function init() {
-    fetch('/api/ai/status').then(r => r.json()).then(data => {
-        aiAvailable = data.available;
-    }).catch(() => {});
-
-    fetch('/api/scan/status').then(r => r.json()).then(status => {
-        if (status.phase === 'scanning' || status.phase === 'chaining' || status.phase === 'correlating') {
-            document.getElementById('results-loading').style.display = 'none';
-            document.getElementById('results-scanning').style.display = 'block';
-            pollForCompletion();
-        } else if (status.phase === 'complete') {
-            loadResults();
-        } else {
-            document.getElementById('results-loading').style.display = 'none';
-            document.getElementById('results-empty').style.display = 'block';
-        }
-    }).catch(() => { loadResults(); });
-}
-
-function pollForCompletion() {
-    resultsPoll = setInterval(() => {
-        fetch('/api/scan/status').then(r => r.json()).then(status => {
-            const pct = Math.min(status.progress || 0, 100);
-            document.getElementById('scanning-bar').style.width = pct + '%';
-            const tool = status.current_tool ? `Running ${status.current_tool}...` : (status.phase || 'Processing...');
-            document.getElementById('scanning-status').textContent = `${tool} (${pct}%)`;
-            if (status.phase === 'complete') {
-                clearInterval(resultsPoll);
-                document.getElementById('results-scanning').style.display = 'none';
-                loadResults();
-            }
-        });
-    }, 2000);
-}
 
 function loadResults() {
     Promise.all([
         fetch('/api/scan/results').then(r => r.json()),
-        fetch('/api/scan/dossier').then(r => r.json()),
-    ]).then(([results, dossier]) => {
+        fetch('/api/scan/recommendations').then(r => r.json()),
+    ]).then(([results, recs]) => {
         scanResults = results;
-        dossierData = dossier;
-        document.getElementById('results-loading').style.display = 'none';
         if (!results || !results.total_findings) {
-            document.getElementById('results-empty').style.display = 'block';
+            document.getElementById('results-loading').innerHTML = '<p class="text-gray-500">No scan results yet. <a href="/scan" class="text-purple-400 hover:underline">Start a scan</a></p>';
             return;
         }
-        document.getElementById('results-content').style.display = 'block';
-        document.getElementById('btn-export').style.display = 'block';
-        renderDossier(dossier);
-        if (aiAvailable) {
-            document.getElementById('btn-ai').style.display = 'block';
-        }
-    }).catch(() => {
         document.getElementById('results-loading').style.display = 'none';
-        document.getElementById('results-empty').style.display = 'block';
+        document.getElementById('results-content').style.display = 'block';
+        renderSeeds(results.seeds);
+        renderSummary(results);
+        renderFindings(results.findings_by_type);
+        if (recs && recs.length > 0) renderRecommendations(recs);
     });
 }
 
-function runAiAnalysis() {
-    document.getElementById('ai-panel').style.display = 'block';
-    document.getElementById('ai-loading').style.display = 'block';
-    document.getElementById('ai-result').style.display = 'none';
-    document.getElementById('ai-chat').style.display = 'none';
-    document.getElementById('ai-status-badge').textContent = 'Analyzing...';
-    document.getElementById('ai-status-badge').className = 'text-xs px-2 py-0.5 rounded-full bg-yellow-900/40 text-yellow-400 pulse-dot';
-    document.getElementById('btn-ai').disabled = true;
-    document.getElementById('btn-ai').textContent = 'Analyzing...';
-    document.getElementById('ai-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    fetch('/api/ai/analyze', { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-            document.getElementById('ai-loading').style.display = 'none';
-            if (data.analysis) {
-                document.getElementById('ai-result').innerHTML = markdownToHtml(data.analysis);
-                document.getElementById('ai-result').style.display = 'block';
-                document.getElementById('ai-chat').style.display = 'block';
-                document.getElementById('ai-status-badge').textContent = 'Complete';
-                document.getElementById('ai-status-badge').className = 'text-xs px-2 py-0.5 rounded-full bg-green-900/40 text-green-400';
-            } else {
-                document.getElementById('ai-result').innerHTML = `<p class="text-red-400">${data.error || 'AI analysis failed'}</p>`;
-                document.getElementById('ai-result').style.display = 'block';
-                document.getElementById('ai-status-badge').textContent = 'Error';
-                document.getElementById('ai-status-badge').className = 'text-xs px-2 py-0.5 rounded-full bg-red-900/40 text-red-400';
-            }
-            document.getElementById('btn-ai').disabled = false;
-            document.getElementById('btn-ai').textContent = 'Re-analyze';
-        })
-        .catch(err => {
-            document.getElementById('ai-loading').style.display = 'none';
-            document.getElementById('ai-result').innerHTML = `<p class="text-red-400">Error: ${err.message}</p>`;
-            document.getElementById('ai-result').style.display = 'block';
-            document.getElementById('btn-ai').disabled = false;
-            document.getElementById('btn-ai').textContent = 'AI Analysis';
-        });
+function renderSeeds(seeds) {
+    const container = document.getElementById('seeds-display');
+    for (const [key, val] of Object.entries(seeds || {})) {
+        if (!val) continue;
+        container.innerHTML += `<span class="px-3 py-1.5 rounded-lg bg-purple-900/30 border border-purple-800/30 mono text-sm">
+            <span class="text-gray-500">${key}:</span> <span class="text-white">${val}</span>
+        </span>`;
+    }
 }
 
-function askAi() {
-    const input = document.getElementById('ai-question');
-    const question = input.value.trim();
-    if (!question) return;
-    const history = document.getElementById('ai-chat-history');
-    history.innerHTML += `<div class="p-3 rounded-lg bg-purple-900/20 border border-purple-800/30">
-        <div class="text-xs text-purple-400 mb-1">You:</div>
-        <div class="text-sm text-gray-300">${question}</div>
-    </div>`;
-    input.value = '';
-    document.getElementById('btn-ask').disabled = true;
-    document.getElementById('btn-ask').textContent = '...';
-    history.innerHTML += `<div id="ai-pending" class="p-3 rounded-lg bg-blue-900/20 border border-blue-800/30">
-        <div class="text-xs text-blue-400 mb-1">AI Analyst:</div>
-        <div class="text-sm text-gray-500 pulse-dot">Thinking...</div>
-    </div>`;
-    history.scrollTop = history.scrollHeight;
-
-    fetch('/api/ai/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question }),
-    })
-    .then(r => r.json())
-    .then(data => {
-        const pending = document.getElementById('ai-pending');
-        if (pending) {
-            pending.id = '';
-            pending.innerHTML = `<div class="text-xs text-blue-400 mb-1">AI Analyst:</div>
-                <div class="text-sm text-gray-300">${markdownToHtml(data.answer || data.error || 'No response')}</div>`;
-        }
-        document.getElementById('btn-ask').disabled = false;
-        document.getElementById('btn-ask').textContent = 'Ask';
-        history.scrollTop = history.scrollHeight;
-    })
-    .catch(err => {
-        const pending = document.getElementById('ai-pending');
-        if (pending) {
-            pending.id = '';
-            pending.innerHTML = `<div class="text-xs text-red-400 mb-1">Error:</div>
-                <div class="text-sm text-red-300">${err.message}</div>`;
-        }
-        document.getElementById('btn-ask').disabled = false;
-        document.getElementById('btn-ask').textContent = 'Ask';
-    });
-}
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && e.target.id === 'ai-question') askAi();
-});
-
-function markdownToHtml(md) {
-    if (!md) return '';
-    return md
-        .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-        .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-        .replace(/^# (.*$)/gm, '<h2>$1</h2>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/`(.*?)`/g, '<code>$1</code>')
-        .replace(/^- (.*$)/gm, '<li>$1</li>')
-        .replace(/^(\d+)\. (.*$)/gm, '<li>$2</li>')
-        .replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
-        .replace(/<\/ul>\s*<ul>/g, '')
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/\n/g, '<br>');
-}
-
-function renderDossier(d) {
-    renderPersonHeader(d);
-    renderStats(d.stats);
-    renderProfiles(d.digital_footprint.social_profiles);
-    renderSites(d.digital_footprint.registered_sites);
-    renderIdentities(d.identities);
-    renderBreaches(d.security.breaches);
-    renderIntel(d.security.raw_intel);
-    renderGeo(d.geo.locations);
-    renderToolRuns(d.tool_runs);
-}
-
-function renderPersonHeader(d) {
-    const seeds = d.seeds || {};
-    const ids = d.identities || {};
-    const name = seeds.full_name || seeds.username || seeds.email?.split('@')[0] || 'Unknown Subject';
-    document.getElementById('person-name').textContent = name;
-    const container = document.getElementById('person-identifiers');
-    const allIds = [
-        ...(ids.emails || []).map(e => ({label: e, color: 'purple'})),
-        ...(ids.usernames || []).map(u => ({label: u, color: 'green'})),
-        ...(ids.phones || []).map(p => ({label: p, color: 'yellow'})),
-    ];
-    for (const id of allIds)
-        container.innerHTML += `<span class="px-2.5 py-1 rounded-full bg-${id.color}-900/30 border border-${id.color}-800/40 text-${id.color}-300 text-xs mono">${id.label}</span>`;
-    const s = d.stats;
-    document.getElementById('person-summary').textContent =
-        `${s.profiles_found} social profiles | ${s.breaches_found} breaches | ${s.sites_registered} registered accounts | ${s.total_findings} total findings from ${s.tools_run} tools`;
-}
-
-function renderStats(s) {
+function renderSummary(results) {
+    const fbt = results.findings_by_type || {};
     const stats = [
-        {label: 'Total Findings', value: s.total_findings, color: 'text-cyber-green'},
-        {label: 'Tools Run', value: s.tools_run, color: 'text-cyber-blue'},
-        {label: 'Profiles', value: s.profiles_found, color: 'text-purple-400'},
-        {label: 'Breaches', value: s.breaches_found, color: 'text-red-400'},
-        {label: 'Sites', value: s.sites_registered, color: 'text-cyan-400'},
-        {label: 'Identities', value: s.emails_found + s.usernames_found, color: 'text-green-400'},
+        { label: 'Total Findings', value: results.total_findings, color: 'text-cyber-green' },
+        { label: 'Tools Run', value: results.total_tool_runs, color: 'text-cyber-blue' },
+        { label: 'Profiles', value: (fbt.social_profile || []).length, color: 'text-purple-400' },
+        { label: 'Breaches', value: (fbt.breach || []).length, color: 'text-cyber-red' },
+        { label: 'Credentials', value: (fbt.leaked_credential || []).length, color: 'text-red-500' },
+        { label: 'Sites', value: (fbt.registered_site || []).length, color: 'text-cyan-400' },
     ];
     const container = document.getElementById('summary-stats');
-    for (const stat of stats)
+    for (const stat of stats) {
         container.innerHTML += `<div class="card rounded-lg p-4 text-center">
             <div class="text-3xl font-bold ${stat.color} mono">${stat.value}</div>
             <div class="text-xs text-gray-500 mt-1">${stat.label}</div>
         </div>`;
+    }
 }
 
-function renderProfiles(profiles) {
-    if (!profiles?.length) return;
-    document.getElementById('section-profiles').style.display = 'block';
-    document.getElementById('profiles-count').textContent = profiles.length + ' found';
-    const container = document.getElementById('profiles-list');
-    for (const p of profiles) {
-        const url = p.value, site = p.metadata?.site || extractDomain(url);
-        const confidence = Math.round(p.confidence * 100);
-        container.innerHTML += `<a href="${url}" target="_blank" class="flex items-center justify-between py-2 px-3 rounded-lg bg-dark-900/50 hover:bg-dark-800/70 transition group">
-            <div class="flex items-center gap-3 min-w-0">
-                <img src="https://www.google.com/s2/favicons?domain=${extractDomain(url)}&sz=16" class="w-4 h-4 flex-shrink-0" onerror="this.style.display='none'">
-                <span class="text-sm text-gray-300 group-hover:text-cyber-blue truncate">${site}</span>
+function renderFindings(fbt) {
+    const container = document.getElementById('results-findings');
+    // Sort by priority order, then by count
+    const sortedTypes = Object.keys(fbt).sort((a, b) => {
+        const orderA = CATEGORY_ORDER.indexOf(a);
+        const orderB = CATEGORY_ORDER.indexOf(b);
+        if (orderA !== -1 && orderB !== -1) return orderA - orderB;
+        if (orderA !== -1) return -1;
+        if (orderB !== -1) return 1;
+        return (fbt[b] || []).length - (fbt[a] || []).length;
+    });
+
+    for (const ftype of sortedTypes) {
+        const items = fbt[ftype];
+        if (!items || items.length === 0) continue;
+        const config = CATEGORY_CONFIG[ftype] || { label: ftype, color: 'text-gray-400', icon: '&#128196;' };
+
+        let html = `<div class="card rounded-lg p-5">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold ${config.color}"><span class="mr-2">${config.icon}</span>${config.label}</h3>
+                <span class="mono text-sm ${config.color}">${items.length}</span>
             </div>
-            <div class="flex items-center gap-2 flex-shrink-0">
-                <span class="mono text-xs text-gray-600">${p.source}</span>
-                <span class="mono text-xs ${confidence > 80 ? 'text-green-500' : 'text-yellow-500'}">${confidence}%</span>
-            </div>
-        </a>`;
+            <div class="space-y-2">`;
+
+        for (const item of items) {
+            const isUrl = (item.value || '').startsWith('http');
+            const confidence = Math.round((item.confidence || 0) * 100);
+            const meta = item.metadata || {};
+
+            // Build metadata display based on finding type
+            let metaHtml = '';
+            if (ftype === 'leaked_credential') {
+                metaHtml = renderCredentialMeta(meta);
+            } else if (ftype === 'breach') {
+                metaHtml = renderBreachMeta(meta);
+            } else if (ftype === 'social_profile') {
+                metaHtml = renderProfileMeta(meta);
+            } else {
+                const metaStr = Object.entries(meta)
+                    .filter(([k]) => !['type'].includes(k))
+                    .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+                    .join(' | ');
+                metaHtml = metaStr ? `<div class="text-xs text-gray-600 mt-1 truncate">${metaStr}</div>` : '';
+            }
+
+            html += `<div class="p-3 rounded-lg bg-dark-900/50 border border-gray-800/50">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        ${isUrl ? `<a href="${item.value}" target="_blank" class="mono text-sm ${config.color} hover:underline break-all">${item.value}</a>`
+                               : `<span class="mono text-sm text-gray-200 break-all">${escapeHtml(item.value)}</span>`}
+                    </div>
+                    <div class="flex items-center gap-2 ml-4 flex-shrink-0">
+                        <span class="text-xs text-gray-600">${item.source_tool}</span>
+                        <div class="w-16 bg-dark-800 rounded-full h-1.5">
+                            <div class="h-1.5 rounded-full ${confidence > 80 ? 'bg-green-500' : confidence > 50 ? 'bg-yellow-500' : 'bg-gray-600'}" style="width:${confidence}%"></div>
+                        </div>
+                        <span class="mono text-xs text-gray-500">${confidence}%</span>
+                    </div>
+                </div>
+                ${metaHtml}
+            </div>`;
+        }
+        html += '</div></div>';
+        container.innerHTML += html;
     }
 }
 
-function renderSites(sites) {
-    if (!sites?.length) return;
-    document.getElementById('section-sites').style.display = 'block';
-    document.getElementById('sites-count').textContent = sites.length + ' found';
-    const container = document.getElementById('sites-list');
-    for (const s of sites)
-        container.innerHTML += `<span class="px-3 py-1.5 rounded-lg bg-cyan-900/20 border border-cyan-800/30 text-cyan-300 text-xs mono">${s.value}</span>`;
+function renderCredentialMeta(meta) {
+    let parts = [];
+    if (meta.password) parts.push(`<span class="text-red-400">password: <code class="bg-red-900/30 px-1.5 py-0.5 rounded">${escapeHtml(meta.password)}</code></span>`);
+    if (meta.password_hash) parts.push(`<span class="text-orange-400">hash: <code class="bg-orange-900/30 px-1.5 py-0.5 rounded">${escapeHtml(meta.password_hash)}</code></span>`);
+    if (meta.identity) parts.push(`<span class="text-gray-500">identity: ${escapeHtml(meta.identity)}</span>`);
+    if (meta.source) parts.push(`<span class="text-gray-600">source: ${escapeHtml(meta.source)}</span>`);
+    if (meta.breach) parts.push(`<span class="text-gray-600">breach: ${escapeHtml(meta.breach)}</span>`);
+    if (meta.password_exposure_count) parts.push(`<span class="text-red-300">exposed in ${meta.password_exposure_count} breaches</span>`);
+    return parts.length ? `<div class="text-xs mt-1.5 flex flex-wrap gap-3">${parts.join('')}</div>` : '';
 }
 
-function renderIdentities(ids) {
-    const hasData = (ids.emails?.length > 1) || (ids.usernames?.length > 1) || (ids.phones?.length > 0);
-    if (!hasData) return;
-    document.getElementById('section-identities').style.display = 'block';
-    const container = document.getElementById('identities-content');
-    if (ids.emails?.length > 0) {
-        let html = '<div><div class="text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Emails</div><div class="flex flex-wrap gap-1.5">';
-        for (const e of ids.emails) html += `<span class="px-2.5 py-1 rounded bg-purple-900/30 border border-purple-800/30 text-purple-300 text-xs mono">${e}</span>`;
-        container.innerHTML += html + '</div></div>';
-    }
-    if (ids.usernames?.length > 0) {
-        let html = '<div><div class="text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Usernames</div><div class="flex flex-wrap gap-1.5">';
-        for (const u of ids.usernames) html += `<span class="px-2.5 py-1 rounded bg-green-900/30 border border-green-800/30 text-green-300 text-xs mono">${u}</span>`;
-        container.innerHTML += html + '</div></div>';
-    }
-    if (ids.phones?.length > 0) {
-        let html = '<div><div class="text-xs text-gray-500 mb-1.5 uppercase tracking-wider">Phones</div><div class="flex flex-wrap gap-1.5">';
-        for (const p of ids.phones) html += `<span class="px-2.5 py-1 rounded bg-yellow-900/30 border border-yellow-800/30 text-yellow-300 text-xs mono">${p}</span>`;
-        container.innerHTML += html + '</div></div>';
-    }
+function renderBreachMeta(meta) {
+    let parts = [];
+    if (meta.data_types_exposed) parts.push(`<span class="text-red-300">data exposed: ${escapeHtml(String(meta.data_types_exposed))}</span>`);
+    if (meta.breach_date) parts.push(`<span class="text-gray-500">date: ${escapeHtml(meta.breach_date)}</span>`);
+    if (meta.breach_domain) parts.push(`<span class="text-gray-500">domain: ${escapeHtml(meta.breach_domain)}</span>`);
+    if (meta.records_exposed) parts.push(`<span class="text-orange-400">${meta.records_exposed.toLocaleString()} records</span>`);
+    if (meta.password_exposed) parts.push(`<span class="text-red-500 font-semibold">PASSWORDS EXPOSED</span>`);
+    return parts.length ? `<div class="text-xs mt-1.5 flex flex-wrap gap-3">${parts.join('')}</div>` : '';
 }
 
-function renderBreaches(breaches) {
-    if (!breaches?.length) return;
-    document.getElementById('section-breaches').style.display = 'block';
-    document.getElementById('breaches-count').textContent = breaches.length + ' found';
-    const container = document.getElementById('breaches-list');
-    for (const b of breaches) {
-        const email = b.metadata?.email || '';
-        container.innerHTML += `<div class="flex items-center justify-between py-2.5 px-3 rounded-lg bg-red-900/10 border border-red-900/30">
-            <div><div class="text-sm text-red-300 font-medium">${b.value}</div>
-            ${email ? `<div class="text-xs text-gray-500 mt-0.5">${email}</div>` : ''}</div>
-            <div class="flex items-center gap-2">
-                <span class="mono text-xs text-gray-600">${b.source}</span>
-                <span class="mono text-xs text-red-400">${Math.round(b.confidence * 100)}%</span>
-            </div>
+function renderProfileMeta(meta) {
+    let parts = [];
+    if (meta.site) parts.push(`<span class="text-gray-500">${escapeHtml(meta.site)}</span>`);
+    if (meta.username) parts.push(`<span class="text-green-400">@${escapeHtml(meta.username)}</span>`);
+    if (meta.registration_confirmed) parts.push(`<span class="text-cyan-400">registration confirmed</span>`);
+    if (meta.link_type) parts.push(`<span class="text-gray-600">via: ${escapeHtml(meta.link_type)}</span>`);
+    if (meta.tags) parts.push(`<span class="text-gray-600">tags: ${escapeHtml(String(meta.tags))}</span>`);
+    return parts.length ? `<div class="text-xs mt-1.5 flex flex-wrap gap-3">${parts.join('')}</div>` : '';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
+function renderRecommendations(recs) {
+    const section = document.getElementById('recommendations-section');
+    const container = document.getElementById('recommendations-list');
+    section.style.display = 'block';
+    for (const rec of recs.slice(0, 10)) {
+        container.innerHTML += `<div class="flex items-center justify-between py-2 px-3 rounded bg-purple-900/10 border border-purple-900/20">
+            <span class="text-sm text-gray-300">${rec.reason}</span>
+            <span class="mono text-xs text-purple-400">${rec.tool}</span>
         </div>`;
     }
 }
 
-function renderIntel(intel) {
-    if (!intel?.length) return;
-    document.getElementById('section-intel').style.display = 'block';
-    const container = document.getElementById('intel-list');
-    for (const item of intel)
-        container.innerHTML += `<div class="py-2 px-3 rounded-lg bg-dark-900/50 border border-gray-800/30">
-            <div class="text-sm text-gray-300 break-all">${item.value}</div>
-            <div class="text-xs text-gray-600 mt-1">${item.source} | ${Math.round(item.confidence * 100)}%</div>
-        </div>`;
-}
-
-function renderGeo(locations) {
-    if (!locations?.length) return;
-    document.getElementById('section-geo').style.display = 'block';
-    const container = document.getElementById('geo-list');
-    for (const loc of locations)
-        container.innerHTML += `<div class="flex items-center gap-3 py-2 px-3 rounded-lg bg-orange-900/10 border border-orange-900/30">
-            <span class="text-orange-400">&#128205;</span>
-            <div><div class="text-sm text-orange-300">${loc.value}</div>
-            ${loc.metadata?.detail ? `<div class="text-xs text-gray-500">${loc.metadata.detail}</div>` : ''}</div>
-        </div>`;
-}
-
-function renderToolRuns(runs) {
-    if (!runs) return;
-    const container = document.getElementById('tools-list');
-    for (const run of runs) {
-        const s = run.status || 'unknown';
-        const color = s === 'completed' ? 'text-green-400' : s === 'failed' ? 'text-red-400' : 'text-gray-400';
-        const findings = (run.findings || []).length;
-        const icon = s === 'completed' ? '&#10003;' : s === 'failed' ? '&#10007;' : '&#8226;';
-        container.innerHTML += `<div class="flex items-center justify-between py-1.5 px-3 rounded bg-dark-900/50 text-xs">
-            <span class="mono ${color}">${icon} ${run.tool_name}</span>
-            <span class="text-gray-500">${run.input_type}=${run.input_value}</span>
-            <span class="mono ${findings > 0 ? 'text-cyber-green' : 'text-gray-600'}">${findings}</span>
-            <span class="${color}">${s}</span>
-        </div>`;
-    }
-}
-
-function toggleToolRuns() {
-    const el = document.getElementById('tools-list');
-    el.style.display = el.style.display === 'none' ? 'block' : 'none';
-}
-function extractDomain(url) {
-    try { return new URL(url).hostname.replace('www.', ''); } catch { return url; }
-}
 function exportJSON() {
-    const data = dossierData || scanResults;
-    if (!data) return;
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    if (!scanResults) return;
+    const blob = new Blob([JSON.stringify(scanResults, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `osint-dossier-${new Date().toISOString().slice(0,10)}.json`;
+    a.download = `osint-report-${scanResults.id || 'scan'}.json`;
     a.click();
     URL.revokeObjectURL(url);
 }
-init();
+
+loadResults();
 </script>
 {% endblock %}
