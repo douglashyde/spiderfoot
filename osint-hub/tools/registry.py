@@ -15,11 +15,17 @@ from .cr3dov3r_tool import Cr3dOv3rTool
 from .comb2passlist_tool import Comb2PasslistTool
 from .ghunt_tool import GHuntTool
 from .spiderfoot_tool import SpiderfootTool
-from .osintgram_tool import OsintgramTool
-from .x_osint_tool import XOsintTool
-from .leaklooker_tool import LeakLookerTool
-from .oblivion_tool import OblivionTool
-from .findpeopleinfo_tool import FindPeopleInfoTool
+# New tools - V2
+from .ignorant_tool import IgnorantTool
+from .socialscan_tool import SocialscanTool
+from .photon_tool import PhotonTool
+from .breachdirectory_tool import BreachDirectoryTool
+from .intelx_phonebook_tool import IntelxPhonebookTool
+from .psbdmp_tool import PasteDumpTool
+from .emailrep_tool import EmailRepTool
+from .hudsonrock_tool import HudsonRockTool
+from .leakcheck_tool import LeakCheckTool
+from .dehashed_free_tool import DehashedFreeTool
 
 
 ALL_TOOLS = {
@@ -29,31 +35,36 @@ ALL_TOOLS = {
     "blackbird": BlackbirdTool,
     "nexfil": NexfilTool,
     "social_analyzer": SocialAnalyzerTool,
+    "socialscan": SocialscanTool,
 
     # Email OSINT tools
     "holehe": HoleheTool,
     "theharvester": TheHarvesterTool,
     "ghunt": GHuntTool,
+    "emailrep": EmailRepTool,
 
     # Phone OSINT
     "phoneinfoga": PhoneInfogaTool,
+    "ignorant": IgnorantTool,
 
-    # Social media specific
-    "osintgram": OsintgramTool,
-    "x_osint": XOsintTool,
-
-    # Breach / leak tools
+    # Breach / credential tools
     "xposedornot": XposedOrNotTool,
     "h8mail": H8mailTool,
     "whatbreach": WhatBreachTool,
     "leaksearch": LeakSearchTool,
     "cr3dov3r": Cr3dOv3rTool,
     "comb2passlist": Comb2PasslistTool,
-    "oblivion": OblivionTool,
-    "leaklooker": LeakLookerTool,
+    "breachdirectory": BreachDirectoryTool,
+    "hudsonrock": HudsonRockTool,
+    "leakcheck": LeakCheckTool,
+    "dehashed_free": DehashedFreeTool,
 
-    # People search
-    "findpeopleinfo": FindPeopleInfoTool,
+    # Intelligence / paste search
+    "intelx_phonebook": IntelxPhonebookTool,
+    "psbdmp": PasteDumpTool,
+
+    # Domain OSINT
+    "photon": PhotonTool,
 
     # Frameworks
     "spiderfoot": SpiderfootTool,
@@ -63,48 +74,65 @@ ALL_TOOLS = {
 INPUT_TOOL_MAP = {
     "email": [
         "holehe", "xposedornot", "h8mail", "whatbreach",
-        "leaksearch", "cr3dov3r", "comb2passlist", "oblivion",
-        "theharvester", "ghunt", "leaklooker", "findpeopleinfo",
+        "leaksearch", "cr3dov3r", "comb2passlist",
+        "theharvester", "ghunt", "emailrep",
+        "breachdirectory", "hudsonrock", "leakcheck",
+        "dehashed_free", "psbdmp", "intelx_phonebook",
+        "socialscan",
     ],
     "username": [
         "sherlock", "maigret", "blackbird", "nexfil",
         "social_analyzer", "leaksearch", "comb2passlist",
-        "osintgram", "x_osint",
+        "socialscan", "hudsonrock", "psbdmp",
+        "dehashed_free",
     ],
     "phone": [
-        "phoneinfoga", "findpeopleinfo",
+        "phoneinfoga", "ignorant", "dehashed_free",
     ],
     "domain": [
-        "theharvester", "spiderfoot", "leaklooker",
+        "theharvester", "spiderfoot", "photon",
+        "intelx_phonebook", "psbdmp", "hudsonrock",
     ],
     "full_name": [
-        "findpeopleinfo",
+        # Name-based searches are done by extracting usernames first
     ],
 }
 
-# Priority ordering - run these first as they're fastest and most reliable
+# Priority ordering - lower = run first (fastest and most reliable)
 TOOL_PRIORITY = {
-    "xposedornot": 1,    # Fast API, always works
-    "holehe": 2,          # Fast, no API key
-    "sherlock": 3,        # Well maintained
-    "maigret": 4,         # Comprehensive but slower
-    "phoneinfoga": 5,
-    "h8mail": 6,
-    "leaksearch": 7,
-    "cr3dov3r": 8,
-    "comb2passlist": 9,
-    "oblivion": 10,
-    "whatbreach": 11,
-    "blackbird": 12,
-    "nexfil": 13,
-    "social_analyzer": 14,
-    "osintgram": 15,
-    "x_osint": 16,
-    "theharvester": 17,
-    "ghunt": 18,
-    "leaklooker": 19,
-    "findpeopleinfo": 20,
-    "spiderfoot": 21,
+    # Tier 1: Fast APIs, always work, no rate limits
+    "xposedornot": 1,
+    "holehe": 2,
+    "emailrep": 3,
+    "leakcheck": 4,
+    "breachdirectory": 5,
+
+    # Tier 2: Reliable tools
+    "sherlock": 6,
+    "hudsonrock": 7,
+    "ignorant": 8,
+    "socialscan": 9,
+    "maigret": 10,
+
+    # Tier 3: Core breach tools
+    "phoneinfoga": 11,
+    "h8mail": 12,
+    "leaksearch": 13,
+    "cr3dov3r": 14,
+    "psbdmp": 15,
+    "intelx_phonebook": 16,
+    "dehashed_free": 17,
+
+    # Tier 4: Slower / heavier tools
+    "comb2passlist": 18,
+    "whatbreach": 19,
+    "blackbird": 20,
+    "nexfil": 21,
+    "social_analyzer": 22,
+    "theharvester": 23,
+    "photon": 24,
+    "ghunt": 25,
+    "spiderfoot": 26,
 }
 
 

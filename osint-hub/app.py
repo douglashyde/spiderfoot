@@ -6,10 +6,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, render_template, request, jsonify
 from engine.orchestrator import Orchestrator
-from engine.ai_analyst import (
-    analyze_profile, analyze_specific,
-    start_background_analysis, get_analysis_status, _ollama_available,
-)
 from tools.registry import get_all_tool_info
 
 app = Flask(__name__)
@@ -73,187 +69,20 @@ def api_recommendations():
     return jsonify(orchestrator.get_recommendations())
 
 
-@app.route("/api/scan/dossier")
-def api_dossier():
-    """Build a unified person dossier from all findings."""
-    results = orchestrator.get_results()
-    if not results:
-        return jsonify({})
-
-    fbt = results.get("findings_by_type", {})
-
-    def _vals(ftype):
-        return list({f["value"] for f in fbt.get(ftype, [])})
-
-    def _vals_with_meta(ftype):
-        seen = set()
-        out = []
-        for f in fbt.get(ftype, []):
-            if f["value"] not in seen:
-                seen.add(f["value"])
-                out.append({"value": f["value"], "confidence": f["confidence"],
-                            "source": f["source_tool"], "metadata": f.get("metadata", {})})
-        return out
-
-    dossier = {
-        "seeds": results.get("seeds", {}),
-        "identities": {
-            "emails": _vals("email") + _vals("related_email"),
-            "usernames": _vals("username") + _vals("related_username"),
-            "phones": _vals("phone") + _vals("related_phone"),
-            "names": _vals("full_name"),
-        },
-        "digital_footprint": {
-            "social_profiles": _vals_with_meta("social_profile"),
-            "registered_sites": _vals_with_meta("registered_site"),
-        },
-        "security": {
-            "breaches": _vals_with_meta("breach"),
-            "raw_intel": _vals_with_meta("raw"),
-        },
-        "geo": {
-            "locations": _vals_with_meta("location"),
-        },
-        "stats": {
-            "total_findings": results.get("total_findings", 0),
-            "tools_run": results.get("total_tool_runs", 0),
-            "profiles_found": len(fbt.get("social_profile", [])),
-            "breaches_found": len(fbt.get("breach", [])),
-            "sites_registered": len(fbt.get("registered_site", [])),
-            "emails_found": len(fbt.get("email", [])) + len(fbt.get("related_email", [])),
-            "usernames_found": len(fbt.get("username", [])) + len(fbt.get("related_username", [])),
-        },
-        "tool_runs": results.get("tool_runs", []),
-    }
-    return jsonify(dossier)
-
-
-# --- AI Analysis endpoints ---
-
-@app.route("/api/ai/status")
-def api_ai_status():
-    """Check if AI analyst is available."""
-    return jsonify({"available": _ollama_available()})
-
-
-@app.route("/api/ai/analyze", methods=["POST"])
-def api_ai_analyze():
-    """Run full AI analysis on current scan results."""
-    dossier_resp = api_dossier()
-    dossier = dossier_resp.get_json()
-    if not dossier or not dossier.get("stats", {}).get("total_findings"):
-        return jsonify({"error": "No scan results to analyze"}), 400
-
-    # Check for profile_id to use background analysis
-    profile_id = orchestrator.profile.id if orchestrator.profile else "default"
-    cached = get_analysis_status(profile_id)
-    if cached["status"] == "complete" and cached["result"]:
-        return jsonify(cached["result"])
-
-    # Run synchronously for now (takes ~30-60s)
-    result = analyze_profile(dossier)
-    return jsonify(result)
-
-
-@app.route("/api/ai/analyze/start", methods=["POST"])
-def api_ai_analyze_start():
-    """Start AI analysis in background."""
-    dossier_resp = api_dossier()
-    dossier = dossier_resp.get_json()
-    if not dossier or not dossier.get("stats", {}).get("total_findings"):
-        return jsonify({"error": "No scan results to analyze"}), 400
-
-    profile_id = orchestrator.profile.id if orchestrator.profile else "default"
-    start_background_analysis(profile_id, dossier)
-    return jsonify({"status": "started", "profile_id": profile_id})
-
-
-@app.route("/api/ai/analyze/status")
-def api_ai_analyze_status():
-    """Check background analysis progress."""
-    profile_id = orchestrator.profile.id if orchestrator.profile else "default"
-    return jsonify(get_analysis_status(profile_id))
-
-
-@app.route("/api/ai/ask", methods=["POST"])
-def api_ai_ask():
-    """Ask the AI a specific question about the findings."""
-    data = request.json
-    question = data.get("question", "").strip()
-    if not question:
-        return jsonify({"error": "No question provided"}), 400
-
-    dossier_resp = api_dossier()
-    dossier = dossier_resp.get_json()
-    if not dossier or not dossier.get("stats", {}).get("total_findings"):
-        return jsonify({"error": "No scan results to analyze"}), 400
-
-    result = analyze_specific(dossier, question)
-    return jsonify(result)
-
-
 @app.route("/api/tools")
 def api_tools():
     return jsonify(get_all_tool_info())
 
 
-@app.route("/api/tools/diagnose")
-def api_tools_diagnose():
-    """Show which tools are available and why."""
-    import shutil
-    from tools.registry import ALL_TOOLS
-    from config import TOOL_PATHS
-
-    results = []
-    for name, cls in ALL_TOOLS.items():
-        instance = cls()
-        info = {
-            "name": name,
-            "available": instance.is_available(),
-            "cli_command": getattr(instance, 'cli_command', None),
-            "cli_on_path": bool(shutil.which(instance.cli_command)) if getattr(instance, 'cli_command', None) else False,
-            "pip_module": getattr(instance, 'pip_module', None),
-            "tool_path": TOOL_PATHS.get(name, ''),
-            "dir_exists": os.path.isdir(TOOL_PATHS.get(name, '')),
-        }
-        if info["pip_module"]:
-            try:
-                __import__(info["pip_module"])
-                info["pip_importable"] = True
-            except ImportError:
-                info["pip_importable"] = False
-        results.append(info)
-    return jsonify(sorted(results, key=lambda x: (not x["available"], x["name"])))
-
-
 if __name__ == "__main__":
-    from tools.registry import get_tools_for_input
     port = int(os.environ.get("PORT", 5000))
     host = os.environ.get("HOST", "0.0.0.0")
-
-    # Check AI status
-    ai_ok = _ollama_available()
-
     print(f"""
     ╔══════════════════════════════════════════╗
-    ║          OSINT Hub v2.0                  ║
+    ║          OSINT Hub v1.0                  ║
     ║   Unified OSINT Intelligence Platform    ║
-    ║   + AI-Powered Analysis (Ollama)         ║
     ╠══════════════════════════════════════════╣
     ║   http://{host}:{port}                   ║
     ╚══════════════════════════════════════════╝
     """)
-    print(f"  AI Analyst: {'[OK] Mistral 7B via Ollama' if ai_ok else '[--] Not available (run: ollama pull mistral:7b)'}")
-
-    all_info = get_all_tool_info()
-    available = [t for t in all_info if t["available"]]
-    unavailable = [t for t in all_info if not t["available"]]
-    print(f"  Tools available: {len(available)}/{len(all_info)}")
-    for t in available:
-        print(f"    [OK] {t['name']} - {t['description']}")
-    if unavailable:
-        print(f"  Tools unavailable: {len(unavailable)}")
-        for t in unavailable:
-            print(f"    [--] {t['name']}")
-    print()
     app.run(host=host, port=port, debug=True, threaded=True)

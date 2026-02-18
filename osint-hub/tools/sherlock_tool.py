@@ -1,7 +1,6 @@
 """Sherlock - username search across 400+ social networks."""
 import json
 import os
-import re
 import tempfile
 from .base import ToolWrapper, Finding, FindingType
 
@@ -11,54 +10,49 @@ class SherlockTool(ToolWrapper):
     description = "Hunt usernames across 400+ social networks"
     accepts_input = ["username"]
     category = "username_search"
-    pip_module = "sherlock_project"
-    cli_command = "sherlock"
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []
         output_dir = tempfile.mkdtemp()
+        output_file = os.path.join(output_dir, f"{input_value}.json")
 
         cmd = [
-            "sherlock", input_value,
-            "--folderoutput", output_dir,
-            "--timeout", "10",
+            "python", "-m", "sherlock", input_value,
+            "--json", output_file,
+            "--timeout", "15",
             "--print-found",
-            "--no-color",
         ]
-        raw = self._run_command(cmd, timeout=90)
+        raw = self._run_command(cmd, cwd=self.tool_path)
         tool_run.raw_output = raw
 
-        # Parse the txt output file sherlock creates
-        txt_file = os.path.join(output_dir, f"{input_value}.txt")
-        if os.path.exists(txt_file):
+        # Parse JSON results
+        if os.path.exists(output_file):
             try:
-                with open(txt_file) as f:
-                    for line in f:
-                        line = line.strip()
-                        if line.startswith("http"):
-                            findings.append(Finding(
-                                FindingType.SOCIAL_PROFILE,
-                                line,
-                                source_tool=self.name,
-                                confidence=0.85,
-                                metadata={"username": input_value},
-                            ))
-            except Exception:
+                with open(output_file) as f:
+                    data = json.load(f)
+                for site_name, info in data.items():
+                    if info.get("status", "").lower() == "claimed":
+                        url = info.get("url_user", "")
+                        findings.append(Finding(
+                            FindingType.SOCIAL_PROFILE,
+                            url,
+                            source_tool=self.name,
+                            confidence=0.85,
+                            metadata={"site": site_name, "username": input_value},
+                        ))
+            except (json.JSONDecodeError, KeyError):
                 pass
 
-        # Fallback: parse stdout for URLs
+        # Fallback: parse stdout
         if not findings:
             for line in raw.split("\n"):
                 line = line.strip()
-                # Sherlock prints "[+] SiteName: URL"
-                url_match = re.search(r'https?://\S+', line)
-                if url_match and "[+]" in line:
-                    url = url_match.group(0)
+                if line.startswith("http"):
                     findings.append(Finding(
                         FindingType.SOCIAL_PROFILE,
-                        url,
+                        line,
                         source_tool=self.name,
-                        confidence=0.85,
+                        confidence=0.8,
                         metadata={"username": input_value},
                     ))
 

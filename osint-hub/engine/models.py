@@ -14,6 +14,7 @@ class FindingType(str, Enum):
     SOCIAL_PROFILE = "social_profile"
     BREACH = "breach"
     DOMAIN = "domain"
+    SUBDOMAIN = "subdomain"
     IP_ADDRESS = "ip_address"
     PHOTO_URL = "photo_url"
     LOCATION = "location"
@@ -24,6 +25,16 @@ class FindingType(str, Enum):
     RELATED_USERNAME = "related_username"
     RELATED_PHONE = "related_phone"
     LEAKED_CREDENTIAL = "leaked_credential"
+    PASSWORD_HASH = "password_hash"
+    PASTE = "paste"
+    DOCUMENT_URL = "document_url"
+    TECHNOLOGY = "technology"
+    RELATED_DOMAIN = "related_domain"
+    AGE_DOB = "age_dob"
+    ADDRESS = "address"
+    EMPLOYER = "employer"
+    EDUCATION = "education"
+    SOCIAL_CONNECTION = "social_connection"
     RAW = "raw"
 
 
@@ -145,6 +156,11 @@ class TargetProfile:
             FindingType.RELATED_USERNAME: "username",
             FindingType.RELATED_PHONE: "phone",
             FindingType.USERNAME: "username",
+            FindingType.EMAIL: "email",
+            FindingType.PHONE: "phone",
+            FindingType.DOMAIN: "domain",
+            FindingType.RELATED_DOMAIN: "domain",
+            FindingType.SUBDOMAIN: "domain",
         }
         if finding.type in discoverable_types:
             seed_type = discoverable_types[finding.type]
