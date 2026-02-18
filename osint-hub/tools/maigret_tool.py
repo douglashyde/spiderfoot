@@ -1,6 +1,7 @@
 """Maigret - username search across 2500+ sites with detailed profiles."""
 import json
 import os
+import re
 import tempfile
 from .base import ToolWrapper, Finding, FindingType
 
@@ -20,12 +21,14 @@ class MaigretTool(ToolWrapper):
         cmd = [
             "maigret",
             input_value,
-            "--json", "ndjson",
+            "--top-sites", "100",
+            "-J", "ndjson",
             "-fo", output_dir,
-            "--timeout", "15",
+            "--timeout", "10",
             "--no-color",
+            "--no-progressbar",
         ]
-        raw = self._run_command(cmd, timeout=360)
+        raw = self._run_command(cmd, timeout=120)
         tool_run.raw_output = raw
 
         # Try parsing ndjson output
@@ -55,7 +58,6 @@ class MaigretTool(ToolWrapper):
                                             confidence=0.9,
                                             metadata=meta,
                                         ))
-                                        # Extract additional usernames found by maigret
                                         for linked_un in entry.get("ids_usernames", {}).values():
                                             if linked_un != input_value:
                                                 findings.append(Finding(
@@ -75,16 +77,14 @@ class MaigretTool(ToolWrapper):
         # Fallback: parse stdout for URLs
         if not findings:
             for line in raw.split("\n"):
-                if "[+]" in line and "http" in line:
-                    parts = line.split("http")
-                    if len(parts) >= 2:
-                        url = "http" + parts[-1].strip()
-                        findings.append(Finding(
-                            FindingType.SOCIAL_PROFILE,
-                            url,
-                            source_tool=self.name,
-                            confidence=0.8,
-                            metadata={"username": input_value},
-                        ))
+                url_match = re.search(r'https?://\S+', line)
+                if url_match and ("[+]" in line or "Claimed" in line):
+                    findings.append(Finding(
+                        FindingType.SOCIAL_PROFILE,
+                        url_match.group(0),
+                        source_tool=self.name,
+                        confidence=0.8,
+                        metadata={"username": input_value},
+                    ))
 
         return findings

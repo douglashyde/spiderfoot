@@ -130,7 +130,38 @@ def api_tools():
     return jsonify(get_all_tool_info())
 
 
+@app.route("/api/tools/diagnose")
+def api_tools_diagnose():
+    """Show which tools are available and why."""
+    import shutil
+    from tools.registry import ALL_TOOLS
+    from config import TOOL_PATHS
+
+    results = []
+    for name, cls in ALL_TOOLS.items():
+        instance = cls()
+        info = {
+            "name": name,
+            "available": instance.is_available(),
+            "cli_command": getattr(instance, 'cli_command', None),
+            "cli_on_path": bool(shutil.which(instance.cli_command)) if getattr(instance, 'cli_command', None) else False,
+            "pip_module": getattr(instance, 'pip_module', None),
+            "tool_path": TOOL_PATHS.get(name, ''),
+            "dir_exists": os.path.isdir(TOOL_PATHS.get(name, '')),
+        }
+        if info["pip_module"]:
+            try:
+                __import__(info["pip_module"])
+                info["pip_importable"] = True
+            except ImportError:
+                info["pip_importable"] = False
+        results.append(info)
+    return jsonify(sorted(results, key=lambda x: (not x["available"], x["name"])))
+
+
 if __name__ == "__main__":
+    # Print tool availability on startup
+    from tools.registry import get_tools_for_input
     port = int(os.environ.get("PORT", 5000))
     host = os.environ.get("HOST", "0.0.0.0")
     print(f"""
@@ -141,4 +172,15 @@ if __name__ == "__main__":
     ║   http://{host}:{port}                   ║
     ╚══════════════════════════════════════════╝
     """)
+    all_info = get_all_tool_info()
+    available = [t for t in all_info if t["available"]]
+    unavailable = [t for t in all_info if not t["available"]]
+    print(f"  Tools available: {len(available)}/{len(all_info)}")
+    for t in available:
+        print(f"    [OK] {t['name']} - {t['description']}")
+    if unavailable:
+        print(f"  Tools unavailable: {len(unavailable)}")
+        for t in unavailable:
+            print(f"    [--] {t['name']}")
+    print()
     app.run(host=host, port=port, debug=True, threaded=True)

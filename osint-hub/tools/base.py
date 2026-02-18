@@ -24,21 +24,19 @@ class ToolWrapper:
         self.tool_path = TOOL_PATHS.get(self.name, "")
 
     def is_available(self):
-        """Check if the tool is installed and accessible."""
-        # Check if directory exists (git-cloned tool)
-        if os.path.isdir(self.tool_path):
+        """Check if the tool can actually execute (not just directory exists)."""
+        # CLI command on PATH is the strongest signal
+        if self.cli_command and shutil.which(self.cli_command):
             return True
-        # Check if pip module is importable
+        # Pip module importable is also good
         if self.pip_module:
             try:
                 __import__(self.pip_module)
                 return True
             except ImportError:
                 pass
-        # Check if CLI command is on PATH
-        if self.cli_command:
-            if shutil.which(self.cli_command):
-                return True
+        # Directory alone is NOT sufficient - many repos exist but aren't runnable.
+        # Subclasses that need directory-based detection should override this method.
         return False
 
     def _get_cwd(self):

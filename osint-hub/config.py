@@ -43,5 +43,5 @@ TOOL_PATHS = {
 DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-SCAN_TIMEOUT = 300  # seconds per tool
-MAX_CHAIN_DEPTH = 3  # how many levels deep the correlator will chase new leads
+SCAN_TIMEOUT = 60  # default seconds per tool
+MAX_CHAIN_DEPTH = 2  # how many levels deep the correlator will chase new leads
