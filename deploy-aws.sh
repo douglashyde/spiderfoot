@@ -32,7 +32,7 @@ echo ""
 # System deps
 echo "[1/6] Installing system dependencies..."
 sudo apt-get update -qq
-sudo apt-get install -y -qq python3 python3-pip python3-venv git curl wget unzip > /dev/null 2>&1
+sudo apt-get install -y -qq python3 python3-pip python3-venv git curl wget unzip zstd > /dev/null 2>&1
 echo "  Done."
 
 # Clone repo
@@ -90,6 +90,17 @@ fi
 pip install social-analyzer 2>/dev/null || true
 
 echo "  Done."
+
+# Install Ollama for AI analysis
+echo "[4b/6] Installing Ollama AI engine..."
+if ! command -v ollama &> /dev/null; then
+    curl -fsSL https://ollama.com/install.sh | sh 2>/dev/null
+fi
+# Start ollama and pull model in background
+nohup ollama serve > /tmp/ollama.log 2>&1 &
+sleep 2
+ollama pull mistral:7b 2>/dev/null &
+echo "  Ollama installed. Mistral 7B downloading in background."
 
 # Update config for AWS paths
 echo "[5/6] Configuring paths..."
@@ -149,7 +160,7 @@ echo "[6/6] Setting up service..."
 sudo tee /etc/systemd/system/osint-hub.service > /dev/null << EOF
 [Unit]
 Description=OSINT Hub
-After=network.target
+After=network.target ollama.service
 
 [Service]
 Type=simple
