@@ -10,8 +10,8 @@ class WhatBreachTool(ToolWrapper):
     category = "breach"
 
     def is_available(self):
-        import os
-        return os.path.isdir(self.tool_path)
+        # WhatBreach requires interactive API token input - can't run headless
+        return False
 
     def _execute(self, input_type, input_value, tool_run):
         findings = []
