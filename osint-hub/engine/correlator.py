@@ -1,12 +1,24 @@
 """
-Correlation engine V2 - massively upgraded intelligence graph builder.
+Correlation engine V3 - detective-grade intelligence graph builder.
 
 Cross-references findings from all tools, generates derivative leads,
-builds username/email/phone/domain variants, and scores leads for chaining.
+builds username/email/phone/domain variants, scores leads for chaining,
+analyzes password patterns, extracts NLP entities from bios, and
+auto-pivots on new intelligence types (photos, IPs, crypto wallets).
 """
 import re
+import hashlib
+from collections import Counter
 from .models import Finding, FindingType
 
+
+# Common weak passwords for pattern detection
+COMMON_WEAK_PASSWORDS = frozenset({
+    "password", "123456", "12345678", "qwerty", "abc123", "monkey", "master",
+    "dragon", "111111", "baseball", "iloveyou", "trustno1", "sunshine",
+    "princess", "football", "charlie", "shadow", "michael", "password1",
+    "letmein", "welcome", "admin", "login", "passw0rd", "starwars",
+})
 
 # Common free email providers for email generation
 COMMON_EMAIL_DOMAINS = [
@@ -61,6 +73,13 @@ class Correlator:
         # Phase 4: Score and prioritize
         self._calculate_confidence_scores()
         self._score_leads()
+
+        # Phase 5: V4 Detective intelligence
+        self._analyze_password_patterns()
+        self._extract_bio_entities()
+        self._build_timeline()
+        self._detect_location_clusters()
+        self._correlate_crypto_wallets()
 
         return self.profile
 
@@ -629,6 +648,368 @@ class Correlator:
                     return username
         return None
 
+    # ---- Phase 5: V4 Detective Intelligence ----
+
+    def _analyze_password_patterns(self):
+        """Analyze leaked passwords for patterns, reuse, and personal info clues."""
+        credentials = self.profile.get_findings_by_type(FindingType.LEAKED_CREDENTIAL)
+        passwords = []
+
+        for cred in credentials:
+            pw = cred.metadata.get("password", "")
+            if pw and len(pw) >= 4:
+                passwords.append((pw, cred))
+
+        if not passwords:
+            return
+
+        # Track unique passwords and their sources
+        pw_counter = Counter(pw for pw, _ in passwords)
+
+        # Find reused passwords
+        for pw, count in pw_counter.items():
+            if count > 1:
+                self.profile.add_finding(Finding(
+                    FindingType.RAW,
+                    f"Password reused {count}x: {pw[:3]}{'*' * (len(pw) - 3)}",
+                    source_tool="correlator (password_analysis)",
+                    confidence=0.85,
+                    metadata={
+                        "type": "password_reuse",
+                        "reuse_count": count,
+                        "length": len(pw),
+                    },
+                ))
+
+        # Analyze patterns across all passwords
+        all_pws = [pw for pw, _ in passwords]
+        patterns = {
+            "contains_year": 0,
+            "contains_name": 0,
+            "numeric_suffix": 0,
+            "simple_pattern": 0,
+            "total": len(all_pws),
+        }
+
+        # Get known names for comparison
+        seed_name = self.profile.seeds.get("full_name", "")
+        known_names = set()
+        if seed_name:
+            for part in seed_name.lower().split():
+                if len(part) >= 3:
+                    known_names.add(part)
+        seed_username = self.profile.seeds.get("username", "")
+        if seed_username:
+            known_names.add(seed_username.lower())
+
+        years_found = set()
+        for pw, cred in passwords:
+            pw_lower = pw.lower()
+
+            # Check for years (possible birth year or significant date)
+            year_matches = re.findall(r'(19[5-9]\d|20[0-2]\d)', pw)
+            if year_matches:
+                patterns["contains_year"] += 1
+                for y in year_matches:
+                    years_found.add(y)
+
+            # Check for name fragments
+            for name in known_names:
+                if name in pw_lower:
+                    patterns["contains_name"] += 1
+                    break
+
+            # Check for numeric suffix
+            if re.search(r'\d{1,4}$', pw):
+                patterns["numeric_suffix"] += 1
+
+            # Simple/common patterns
+            if pw_lower in COMMON_WEAK_PASSWORDS or len(set(pw_lower)) <= 3:
+                patterns["simple_pattern"] += 1
+
+        # Report significant patterns
+        if patterns["contains_name"] > 0:
+            self.profile.add_finding(Finding(
+                FindingType.RAW,
+                f"Password pattern: {patterns['contains_name']}/{patterns['total']} passwords contain target's name",
+                source_tool="correlator (password_analysis)",
+                confidence=0.7,
+                metadata={"type": "password_pattern", "pattern": "name_in_password"},
+            ))
+
+        if years_found:
+            for year in years_found:
+                self.profile.add_finding(Finding(
+                    FindingType.RAW,
+                    f"Possible significant year in passwords: {year}",
+                    source_tool="correlator (password_analysis)",
+                    confidence=0.5,
+                    metadata={
+                        "type": "password_year_hint",
+                        "year": year,
+                        "note": "Found in password - could be birth year, graduation, or event",
+                    },
+                ))
+
+        # Hash analysis - identify hash types from password_hash findings
+        hashes = self.profile.get_findings_by_type(FindingType.PASSWORD_HASH)
+        for h in hashes:
+            hash_val = h.value or h.metadata.get("hash", "")
+            if hash_val:
+                hash_type = self._identify_hash_type(hash_val)
+                if hash_type and not h.metadata.get("hash_type"):
+                    h.metadata["hash_type"] = hash_type
+
+    def _identify_hash_type(self, hash_str):
+        """Identify the type of hash from its format."""
+        h = hash_str.strip()
+        if re.match(r'^[a-fA-F0-9]{32}$', h):
+            return "MD5"
+        elif re.match(r'^[a-fA-F0-9]{40}$', h):
+            return "SHA-1"
+        elif re.match(r'^[a-fA-F0-9]{64}$', h):
+            return "SHA-256"
+        elif re.match(r'^\$2[aby]?\$\d+\$', h):
+            return "bcrypt"
+        elif re.match(r'^\$6\$', h):
+            return "SHA-512 crypt"
+        elif re.match(r'^\$5\$', h):
+            return "SHA-256 crypt"
+        elif re.match(r'^\$1\$', h):
+            return "MD5 crypt"
+        elif re.match(r'^[a-fA-F0-9]{128}$', h):
+            return "SHA-512"
+        return None
+
+    def _extract_bio_entities(self):
+        """Extract structured entities from bio text (NLP-lite with regex)."""
+        bios = self.profile.get_findings_by_type(FindingType.BIO)
+        raw_findings = self.profile.get_findings_by_type(FindingType.RAW)
+
+        # Also check metadata for bio-like fields
+        bio_texts = []
+        for b in bios:
+            bio_texts.append(b.value)
+        for f in self.profile.findings:
+            for key in ("bio", "description", "about", "summary"):
+                if f.metadata.get(key) and isinstance(f.metadata[key], str):
+                    bio_texts.append(f.metadata[key])
+
+        existing_employers = {f.value.lower() for f in self.profile.findings if f.type == FindingType.EMPLOYER}
+        existing_locations = {f.value.lower() for f in self.profile.findings if f.type == FindingType.LOCATION}
+        existing_orgs = {f.value.lower() for f in self.profile.findings if f.type == FindingType.ORGANIZATION}
+
+        for text in bio_texts:
+            if not text or len(text) < 10:
+                continue
+
+            # Extract employer hints
+            employer_patterns = [
+                r'(?:works?\s+at|working\s+at|employed\s+(?:at|by))\s+([A-Z][A-Za-z0-9\s&]+?)(?:\.|,|\s*$|\s+as)',
+                r'(?:engineer|developer|designer|manager|director|ceo|cto|founder|co-founder)\s+(?:at|@)\s+([A-Z][A-Za-z0-9\s&]+?)(?:\.|,|\s*$)',
+                r'@([A-Z][A-Za-z0-9]+)\b',
+            ]
+            for pattern in employer_patterns:
+                for match in re.finditer(pattern, text, re.IGNORECASE):
+                    employer = match.group(1).strip()
+                    if len(employer) > 2 and employer.lower() not in existing_employers:
+                        self.profile.add_finding(Finding(
+                            FindingType.EMPLOYER,
+                            employer,
+                            source_tool="correlator (bio_nlp)",
+                            confidence=0.45,
+                            metadata={"extracted_from": "bio", "context": text[:100]},
+                        ))
+                        existing_employers.add(employer.lower())
+
+            # Extract location hints
+            location_patterns = [
+                r'(?:based\s+in|living\s+in|from|located\s+in|lives\s+in)\s+([A-Z][A-Za-z\s,]+?)(?:\.|!|\s*$|\s+\|)',
+                r'📍\s*([A-Za-z\s,]+?)(?:\s*\||$)',
+            ]
+            for pattern in location_patterns:
+                for match in re.finditer(pattern, text):
+                    location = match.group(1).strip().rstrip(',')
+                    if len(location) > 2 and location.lower() not in existing_locations:
+                        self.profile.add_finding(Finding(
+                            FindingType.LOCATION,
+                            location,
+                            source_tool="correlator (bio_nlp)",
+                            confidence=0.4,
+                            metadata={"extracted_from": "bio", "context": text[:100]},
+                        ))
+                        existing_locations.add(location.lower())
+
+            # Extract education hints
+            edu_patterns = [
+                r'(?:studied|alumnus|alumni|grad(?:uated)?|student)\s+(?:at|of|from)\s+([A-Z][A-Za-z\s&]+?)(?:\.|,|\s*$)',
+                r'(?:university|college|school|institute)\s+of\s+([A-Z][A-Za-z\s]+?)(?:\.|,|\s*$)',
+            ]
+            for pattern in edu_patterns:
+                for match in re.finditer(pattern, text, re.IGNORECASE):
+                    edu = match.group(1).strip()
+                    if len(edu) > 3:
+                        self.profile.add_finding(Finding(
+                            FindingType.EDUCATION,
+                            edu,
+                            source_tool="correlator (bio_nlp)",
+                            confidence=0.4,
+                            metadata={"extracted_from": "bio"},
+                        ))
+
+            # Extract URLs from bios
+            urls = re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', text)
+            for url in urls[:5]:
+                self.profile.add_finding(Finding(
+                    FindingType.WEB_MENTION,
+                    url,
+                    source_tool="correlator (bio_nlp)",
+                    confidence=0.5,
+                    metadata={"extracted_from": "bio"},
+                ))
+
+    def _build_timeline(self):
+        """Build a timeline from timestamps found across findings."""
+        events = []
+        for f in self.profile.findings:
+            # Check various timestamp fields in metadata
+            for key in ("date", "breach_date", "first_seen", "last_seen",
+                        "timestamp", "scan_date", "last_resolved", "created_at"):
+                val = f.metadata.get(key)
+                if val and isinstance(val, str) and len(val) >= 4:
+                    # Try to extract year at minimum
+                    year_match = re.search(r'((?:19|20)\d{2})', str(val))
+                    if year_match:
+                        events.append({
+                            "date": val,
+                            "year": int(year_match.group(1)),
+                            "type": f.type,
+                            "value": str(f.value)[:60],
+                            "source": f.source_tool,
+                        })
+
+        if len(events) < 2:
+            return
+
+        # Sort by year
+        events.sort(key=lambda e: e["year"])
+
+        # Find earliest and latest activity
+        earliest = events[0]
+        latest = events[-1]
+
+        self.profile.add_finding(Finding(
+            FindingType.RAW,
+            f"Activity timeline: {earliest['year']} to {latest['year']} ({latest['year'] - earliest['year']} year span)",
+            source_tool="correlator (timeline)",
+            confidence=0.6,
+            metadata={
+                "type": "timeline_summary",
+                "earliest_year": earliest["year"],
+                "latest_year": latest["year"],
+                "total_events": len(events),
+                "earliest_event": f"{earliest['type']}: {earliest['value']}",
+                "latest_event": f"{latest['type']}: {latest['value']}",
+            },
+        ))
+
+        # Find years with most activity
+        year_counts = Counter(e["year"] for e in events)
+        for year, count in year_counts.most_common(3):
+            if count >= 3:
+                self.profile.add_finding(Finding(
+                    FindingType.RAW,
+                    f"High activity year: {year} ({count} events)",
+                    source_tool="correlator (timeline)",
+                    confidence=0.5,
+                    metadata={
+                        "type": "timeline_peak",
+                        "year": year,
+                        "event_count": count,
+                    },
+                ))
+
+    def _detect_location_clusters(self):
+        """Detect geographic clusters from location findings."""
+        locations = self.profile.get_findings_by_type(FindingType.LOCATION)
+        if len(locations) < 2:
+            return
+
+        # Extract country mentions
+        countries = Counter()
+        cities = Counter()
+        for loc in locations:
+            country = loc.metadata.get("country", "")
+            city = loc.metadata.get("city", "")
+            if country:
+                countries[country] += 1
+            if city:
+                cities[city] += 1
+
+        # Report dominant locations
+        for country, count in countries.most_common(3):
+            if count >= 2:
+                self.profile.add_finding(Finding(
+                    FindingType.RAW,
+                    f"Location cluster: {country} ({count} indicators)",
+                    source_tool="correlator (geo_analysis)",
+                    confidence=0.6,
+                    metadata={
+                        "type": "location_cluster",
+                        "country": country,
+                        "indicator_count": count,
+                    },
+                ))
+
+        for city, count in cities.most_common(3):
+            if count >= 2:
+                self.profile.add_finding(Finding(
+                    FindingType.RAW,
+                    f"City cluster: {city} ({count} indicators)",
+                    source_tool="correlator (geo_analysis)",
+                    confidence=0.65,
+                    metadata={
+                        "type": "city_cluster",
+                        "city": city,
+                        "indicator_count": count,
+                    },
+                ))
+
+    def _correlate_crypto_wallets(self):
+        """Correlate crypto wallet findings and link to identities."""
+        raw_findings = self.profile.get_findings_by_type(FindingType.RAW)
+        btc_wallets = []
+        eth_wallets = []
+
+        for f in raw_findings:
+            addr = f.metadata.get("address", "")
+            if f.metadata.get("type") in ("bitcoin_address", "bitcoin_bech32_address"):
+                btc_wallets.append((addr, f))
+            elif f.metadata.get("type") == "ethereum_address":
+                eth_wallets.append((addr, f))
+            elif f.metadata.get("type") == "ens_domain":
+                # Link ENS to username if matching
+                ens = f.metadata.get("ens_name", "")
+                if ens:
+                    ens_user = ens.replace(".eth", "")
+                    usernames = self.profile.get_findings_by_type(FindingType.USERNAME)
+                    for u in usernames:
+                        if u.value.lower() == ens_user.lower():
+                            if u.id not in f.linked_to:
+                                f.linked_to.append(u.id)
+
+        # Link wallets found on donation pages to usernames
+        for wallets in [btc_wallets, eth_wallets]:
+            for addr, finding in wallets:
+                found_on = finding.metadata.get("found_on", "")
+                if found_on:
+                    # Try to link to a social profile
+                    profiles = self.profile.get_findings_by_type(FindingType.SOCIAL_PROFILE)
+                    for p in profiles:
+                        if found_on in p.value or p.value in found_on:
+                            if p.id not in finding.linked_to:
+                                finding.linked_to.append(p.id)
+
     # ---- Recommendations ----
 
     def get_tool_recommendations(self):
@@ -649,6 +1030,9 @@ class Correlator:
             "wayback", "code_search", "forum_search",
             "document_search", "dns_recon", "public_records",
             "messaging_search",
+            # V4 detective tools
+            "reverse_image", "crypto_intel", "threat_intel",
+            "wifi_geo", "username_mutation",
         ]
         for em in all_emails:
             # Skip generated/low-confidence emails unless they come from a tool
@@ -675,6 +1059,8 @@ class Correlator:
             "google_dorking", "deep_paste", "darkweb_search",
             "wayback", "code_search", "forum_search",
             "public_records", "messaging_search",
+            # V4 detective tools
+            "reverse_image", "crypto_intel", "username_mutation",
         ]
         for un in all_usernames:
             if un.metadata.get("generated") and un.confidence < 0.5:
@@ -698,6 +1084,7 @@ class Correlator:
             "phoneinfoga", "ignorant",
             "google_dorking", "deep_paste", "darkweb_search",
             "public_records", "messaging_search",
+            "dehashed_free",
         ]
         for phone in all_phones:
             for tool in phone_tools:
@@ -721,6 +1108,8 @@ class Correlator:
             "wayback", "code_search", "forum_search",
             "document_search", "dns_recon", "public_records",
             "messaging_search",
+            # V4 detective tools
+            "threat_intel", "wifi_geo", "crypto_intel",
         ]
         for dom in all_domains:
             for tool in domain_tools:

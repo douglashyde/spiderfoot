@@ -1,0 +1,403 @@
+{% extends "base.html" %}
+{% block title %}OSINT Hub - Intelligence Graph{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+    <!-- Controls -->
+    <div class="card rounded-lg p-4 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <h2 class="text-lg font-semibold text-white">Intelligence Network Graph</h2>
+            <span class="text-xs text-gray-500 mono" id="graph-stats">No data</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="resetZoom()" class="px-3 py-1.5 text-xs bg-dark-900 border border-purple-900/30 text-gray-300 rounded hover:border-purple-500 transition">Reset View</button>
+            <button onclick="toggleLabels()" class="px-3 py-1.5 text-xs bg-dark-900 border border-purple-900/30 text-gray-300 rounded hover:border-purple-500 transition">Toggle Labels</button>
+            <button onclick="togglePhysics()" class="px-3 py-1.5 text-xs bg-dark-900 border border-purple-900/30 text-gray-300 rounded hover:border-purple-500 transition" id="btn-physics">Freeze</button>
+            <a href="/scan" class="px-3 py-1.5 text-xs bg-purple-600/20 border border-purple-500/30 text-purple-300 rounded hover:bg-purple-600/30 transition">Back to Scan</a>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="card rounded-lg p-3 flex flex-wrap gap-3 items-center" id="legend"></div>
+
+    <!-- Graph Container -->
+    <div class="card rounded-lg overflow-hidden" style="height: calc(100vh - 220px);">
+        <div id="graph-container" style="width: 100%; height: 100%; position: relative;">
+            <div id="graph-loading" class="absolute inset-0 flex items-center justify-center">
+                <span class="text-gray-500 text-sm">Loading graph data...</span>
+            </div>
+            <svg id="graph-svg" style="width: 100%; height: 100%;"></svg>
+        </div>
+    </div>
+
+    <!-- Detail Panel (tooltip) -->
+    <div id="node-tooltip" class="fixed card rounded-lg p-4 shadow-xl z-50 max-w-sm" style="display: none; pointer-events: none;">
+        <div id="tooltip-content"></div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+const GROUP_COLORS = {
+    seed: '#e94560',
+    social_profile: '#00d4ff',
+    registered_site: '#22d3ee',
+    leaked_credential: '#ff0040',
+    breach: '#ef4444',
+    password_hash: '#f87171',
+    email: '#a78bfa',
+    related_email: '#c4b5fd',
+    username: '#00ff41',
+    related_username: '#86efac',
+    phone: '#fbbf24',
+    related_phone: '#fde68a',
+    full_name: '#e5e7eb',
+    location: '#fb923c',
+    photo_url: '#f472b6',
+    domain: '#2dd4bf',
+    related_domain: '#5eead4',
+    subdomain: '#99f6e4',
+    ip_address: '#9ca3af',
+    dark_web_mention: '#f59e0b',
+    code_repository: '#a3e635',
+    forum_post: '#38bdf8',
+    paste: '#fb923c',
+    archived_page: '#a78bfa',
+    dns_record: '#34d399',
+    certificate: '#6ee7b7',
+    public_record: '#fb7185',
+    web_mention: '#94a3b8',
+    messaging_profile: '#e879f9',
+    organization: '#fde68a',
+    technology: '#67e8f9',
+    raw: '#6b7280',
+};
+
+const GROUP_LABELS = {
+    seed: 'Seed Input',
+    social_profile: 'Social Profile',
+    registered_site: 'Registered Site',
+    leaked_credential: 'Leaked Credential',
+    breach: 'Breach',
+    password_hash: 'Password Hash',
+    email: 'Email',
+    related_email: 'Related Email',
+    username: 'Username',
+    related_username: 'Related Username',
+    phone: 'Phone',
+    full_name: 'Full Name',
+    location: 'Location',
+    domain: 'Domain',
+    subdomain: 'Subdomain',
+    ip_address: 'IP Address',
+    dark_web_mention: 'Dark Web',
+    code_repository: 'Code Repo',
+    forum_post: 'Forum Post',
+    paste: 'Paste',
+    archived_page: 'Archived Page',
+    dns_record: 'DNS Record',
+    public_record: 'Public Record',
+    web_mention: 'Web Mention',
+    messaging_profile: 'Messaging',
+    organization: 'Organization',
+    technology: 'Technology',
+    raw: 'Raw Intel',
+};
+
+let simulation = null;
+let showLabels = true;
+let physicsRunning = true;
+let svg, g, link, node, label, zoom;
+
+function initGraph(data) {
+    document.getElementById('graph-loading').style.display = 'none';
+
+    if (!data.nodes.length) {
+        document.getElementById('graph-loading').style.display = 'flex';
+        document.getElementById('graph-loading').innerHTML =
+            '<span class="text-gray-500 text-sm">No findings yet. <a href="/scan" class="text-purple-400 hover:underline">Run a scan first.</a></span>';
+        return;
+    }
+
+    document.getElementById('graph-stats').textContent =
+        `${data.nodes.length} nodes, ${data.links.length} links`;
+
+    // Build legend from actual groups
+    const groups = [...new Set(data.nodes.map(n => n.group))];
+    const legendEl = document.getElementById('legend');
+    legendEl.innerHTML = groups.map(g => {
+        const color = GROUP_COLORS[g] || '#6b7280';
+        const label = GROUP_LABELS[g] || g;
+        return `<div class="flex items-center gap-1.5">
+            <div class="w-3 h-3 rounded-full" style="background: ${color}"></div>
+            <span class="text-xs text-gray-400">${label}</span>
+        </div>`;
+    }).join('');
+
+    const container = document.getElementById('graph-container');
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    svg = d3.select('#graph-svg')
+        .attr('viewBox', [0, 0, width, height]);
+
+    // Clear previous
+    svg.selectAll('*').remove();
+
+    // Defs for glow
+    const defs = svg.append('defs');
+    const filter = defs.append('filter').attr('id', 'glow');
+    filter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'coloredBlur');
+    const feMerge = filter.append('feMerge');
+    feMerge.append('feMergeNode').attr('in', 'coloredBlur');
+    feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    // Arrow marker
+    defs.append('marker')
+        .attr('id', 'arrowhead')
+        .attr('viewBox', '-0 -5 10 10')
+        .attr('refX', 20)
+        .attr('refY', 0)
+        .attr('orient', 'auto')
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', 'rgba(83, 52, 131, 0.4)');
+
+    g = svg.append('g');
+
+    // Zoom
+    zoom = d3.zoom()
+        .scaleExtent([0.1, 8])
+        .on('zoom', (event) => g.attr('transform', event.transform));
+    svg.call(zoom);
+
+    // Links
+    link = g.append('g')
+        .selectAll('line')
+        .data(data.links)
+        .join('line')
+        .attr('stroke', 'rgba(83, 52, 131, 0.3)')
+        .attr('stroke-width', d => Math.max(0.5, (d.value || 0.5) * 2))
+        .attr('marker-end', 'url(#arrowhead)');
+
+    // Nodes
+    node = g.append('g')
+        .selectAll('circle')
+        .data(data.nodes)
+        .join('circle')
+        .attr('r', d => d.size || 8)
+        .attr('fill', d => GROUP_COLORS[d.group] || '#6b7280')
+        .attr('stroke', d => d.group === 'seed' ? '#fff' : 'rgba(255,255,255,0.1)')
+        .attr('stroke-width', d => d.group === 'seed' ? 2 : 0.5)
+        .style('filter', d => d.group === 'seed' ? 'url(#glow)' : 'none')
+        .style('cursor', 'pointer')
+        .on('mouseover', showTooltip)
+        .on('mouseout', hideTooltip)
+        .on('click', highlightConnected)
+        .call(d3.drag()
+            .on('start', dragStarted)
+            .on('drag', dragged)
+            .on('end', dragEnded));
+
+    // Labels
+    label = g.append('g')
+        .selectAll('text')
+        .data(data.nodes)
+        .join('text')
+        .text(d => d.label)
+        .attr('font-size', d => d.group === 'seed' ? 11 : 9)
+        .attr('font-family', "'JetBrains Mono', monospace")
+        .attr('fill', d => d.group === 'seed' ? '#fff' : 'rgba(255,255,255,0.6)')
+        .attr('text-anchor', 'middle')
+        .attr('dy', d => -(d.size || 8) - 4)
+        .style('pointer-events', 'none')
+        .style('display', showLabels ? 'block' : 'none');
+
+    // Simulation
+    simulation = d3.forceSimulation(data.nodes)
+        .force('link', d3.forceLink(data.links).id(d => d.id).distance(80).strength(0.3))
+        .force('charge', d3.forceManyBody().strength(-200).distanceMax(400))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius(d => (d.size || 8) + 5))
+        .force('x', d3.forceX(width / 2).strength(0.03))
+        .force('y', d3.forceY(height / 2).strength(0.03))
+        .on('tick', ticked);
+
+    // Seed nodes get stronger center pull
+    data.nodes.forEach(n => {
+        if (n.group === 'seed') {
+            n.fx = width / 2 + (Math.random() - 0.5) * 50;
+            n.fy = height / 2 + (Math.random() - 0.5) * 50;
+            // Release after initial stabilization
+            setTimeout(() => { n.fx = null; n.fy = null; }, 3000);
+        }
+    });
+}
+
+function ticked() {
+    link
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+
+    node
+        .attr('cx', d => d.x)
+        .attr('cy', d => d.y);
+
+    label
+        .attr('x', d => d.x)
+        .attr('y', d => d.y);
+}
+
+function dragStarted(event, d) {
+    if (!event.active) simulation.alphaTarget(0.3).restart();
+    d.fx = d.x;
+    d.fy = d.y;
+}
+
+function dragged(event, d) {
+    d.fx = event.x;
+    d.fy = event.y;
+}
+
+function dragEnded(event, d) {
+    if (!event.active) simulation.alphaTarget(0);
+    d.fx = null;
+    d.fy = null;
+}
+
+function showTooltip(event, d) {
+    const tooltip = document.getElementById('node-tooltip');
+    const content = document.getElementById('tooltip-content');
+
+    let html = `<div class="text-sm font-medium" style="color: ${GROUP_COLORS[d.group] || '#fff'}">${GROUP_LABELS[d.group] || d.group}</div>`;
+    html += `<div class="mono text-xs text-gray-300 mt-1 break-all">${escapeHtml(d.label)}</div>`;
+
+    if (d.confidence !== undefined) {
+        const pct = Math.round(d.confidence * 100);
+        html += `<div class="text-xs text-gray-500 mt-1">Confidence: ${pct}%</div>`;
+    }
+    if (d.source) {
+        html += `<div class="text-xs text-gray-500">Source: ${escapeHtml(d.source)}</div>`;
+    }
+    if (d.metadata) {
+        const metaKeys = Object.keys(d.metadata).filter(k =>
+            !['type'].includes(k) && d.metadata[k] && String(d.metadata[k]).length < 80
+        ).slice(0, 5);
+        if (metaKeys.length) {
+            html += '<div class="text-xs text-gray-600 mt-1 space-y-0.5">';
+            for (const k of metaKeys) {
+                html += `<div><span class="text-gray-500">${k}:</span> ${escapeHtml(String(d.metadata[k]))}</div>`;
+            }
+            html += '</div>';
+        }
+    }
+
+    content.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (event.pageX + 15) + 'px';
+    tooltip.style.top = (event.pageY - 10) + 'px';
+}
+
+function hideTooltip() {
+    document.getElementById('node-tooltip').style.display = 'none';
+}
+
+function highlightConnected(event, d) {
+    const connectedIds = new Set([d.id]);
+
+    link.each(function(l) {
+        if (l.source.id === d.id) connectedIds.add(l.target.id);
+        if (l.target.id === d.id) connectedIds.add(l.source.id);
+    });
+
+    node.attr('opacity', n => connectedIds.has(n.id) ? 1 : 0.15);
+    link.attr('opacity', l =>
+        (l.source.id === d.id || l.target.id === d.id) ? 1 : 0.05
+    );
+    label.attr('opacity', n => connectedIds.has(n.id) ? 1 : 0.1);
+
+    // Reset on background click
+    svg.on('click.reset', function(e) {
+        if (e.target === this || e.target.tagName === 'svg') {
+            node.attr('opacity', 1);
+            link.attr('opacity', 1);
+            label.attr('opacity', 1);
+            svg.on('click.reset', null);
+        }
+    });
+}
+
+function resetZoom() {
+    const container = document.getElementById('graph-container');
+    svg.transition().duration(500).call(
+        zoom.transform,
+        d3.zoomIdentity.translate(0, 0).scale(1)
+    );
+}
+
+function toggleLabels() {
+    showLabels = !showLabels;
+    if (label) label.style('display', showLabels ? 'block' : 'none');
+}
+
+function togglePhysics() {
+    physicsRunning = !physicsRunning;
+    const btn = document.getElementById('btn-physics');
+    if (physicsRunning) {
+        simulation.alpha(0.3).restart();
+        btn.textContent = 'Freeze';
+    } else {
+        simulation.stop();
+        btn.textContent = 'Unfreeze';
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
+// Load data
+fetch('/api/scan/graph')
+    .then(r => r.json())
+    .then(data => initGraph(data))
+    .catch(err => {
+        document.getElementById('graph-loading').innerHTML =
+            `<span class="text-red-400 text-sm">Error loading graph: ${err}</span>`;
+    });
+
+// Auto-refresh while scanning
+let graphPoll = null;
+function checkAndRefresh() {
+    fetch('/api/scan/status')
+        .then(r => r.json())
+        .then(status => {
+            if (status.phase === 'scanning' || status.phase === 'chaining' || status.phase === 'correlating') {
+                if (!graphPoll) {
+                    graphPoll = setInterval(() => {
+                        fetch('/api/scan/graph')
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.nodes.length > 0) initGraph(data);
+                            });
+                    }, 5000);
+                }
+            } else if (graphPoll) {
+                clearInterval(graphPoll);
+                graphPoll = null;
+            }
+        });
+}
+checkAndRefresh();
+setInterval(checkAndRefresh, 10000);
+</script>
+{% endblock %}

@@ -15,14 +15,14 @@
                     <label class="block text-sm font-medium text-gray-300 mb-1">Email Address</label>
                     <input type="email" name="email" id="input-email" placeholder="target@example.com"
                         class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
-                    <p class="text-xs text-gray-500 mt-1">36 tools: holehe, breaches, dorking, dark web, paste sites, code search +more</p>
+                    <p class="text-xs text-gray-500 mt-1">41 tools: holehe, breaches, dorking, dark web, pastes, crypto, threat intel +more</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Username(s)</label>
                     <input type="text" name="username" id="input-username" placeholder="johndoe"
                         class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
-                    <p class="text-xs text-gray-500 mt-1">36 tools: sherlock, maigret, GitHub, Reddit, Telegram, forums +more</p>
+                    <p class="text-xs text-gray-500 mt-1">41 tools: sherlock, maigret, GitHub, Reddit, Telegram, crypto, mutations +more</p>
                 </div>
 
                 <div>
@@ -36,14 +36,14 @@
                     <label class="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
                     <input type="text" name="full_name" id="input-fullname" placeholder="John Doe"
                         class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
-                    <p class="text-xs text-gray-500 mt-1">7 tools: dorking, dark web, forums, public records, documents, wayback +more</p>
+                    <p class="text-xs text-gray-500 mt-1">8 tools: dorking, dark web, forums, public records, documents, username mutations</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Domain</label>
                     <input type="text" name="domain" id="input-domain" placeholder="example.com"
                         class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
-                    <p class="text-xs text-gray-500 mt-1">16 tools: theHarvester, DNS/CT recon, Shodan, dorking, dark web +more</p>
+                    <p class="text-xs text-gray-500 mt-1">19 tools: theHarvester, DNS/CT, Shodan, threat intel, WiFi/geo, dorking +more</p>
                 </div>
 
                 <div class="pt-2 space-y-3">
@@ -130,6 +130,39 @@
                 <div class="text-2xl font-bold text-indigo-400 mono" id="stat-documents">0</div>
                 <div class="text-xs text-gray-500">Documents</div>
             </div>
+        </div>
+        <!-- V4 Detective Stats -->
+        <div id="stats-v4-section" class="grid grid-cols-5 gap-3" style="display:none">
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-teal-400 mono" id="stat-locations">0</div>
+                <div class="text-xs text-gray-500">Locations</div>
+            </div>
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-emerald-400 mono" id="stat-dns">0</div>
+                <div class="text-xs text-gray-500">DNS/IPs</div>
+            </div>
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-pink-400 mono" id="stat-photos">0</div>
+                <div class="text-xs text-gray-500">Photos</div>
+            </div>
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-fuchsia-400 mono" id="stat-messaging">0</div>
+                <div class="text-xs text-gray-500">Messaging</div>
+            </div>
+            <div class="card rounded-lg p-3 text-center">
+                <a href="/graph" id="graph-link" class="block hover:opacity-80 transition">
+                    <div class="text-2xl font-bold text-purple-400 mono" id="stat-webmentions">0</div>
+                    <div class="text-xs text-gray-500">Web Mentions</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Graph Button -->
+        <div id="graph-btn-section" style="display:none">
+            <a href="/graph" class="block card rounded-lg p-3 text-center hover:border-purple-500 transition group">
+                <span class="text-sm text-purple-400 group-hover:text-purple-300">View Intelligence Network Graph</span>
+                <span class="text-xs text-gray-500 ml-2">Interactive D3.js visualization</span>
+            </a>
         </div>
 
         <!-- Findings by Category -->
@@ -231,6 +264,8 @@ document.getElementById('scan-form').addEventListener('submit', function(e) {
         document.getElementById('progress-section').style.display = 'block';
         document.getElementById('stats-section').style.display = 'grid';
         document.getElementById('stats-v3-section').style.display = 'grid';
+        document.getElementById('stats-v4-section').style.display = 'grid';
+        document.getElementById('graph-btn-section').style.display = 'block';
         document.getElementById('findings-section').style.display = 'block';
         document.getElementById('tool-runs-section').style.display = 'block';
         document.getElementById('log-section').style.display = 'block';
@@ -317,6 +352,14 @@ function updateResults(results) {
     document.getElementById('stat-forums').textContent = (fbt.forum_post || []).length;
     document.getElementById('stat-documents').textContent =
         (fbt.document_url || []).length + (fbt.archived_page || []).length;
+
+    // Stats - row 3 (V4 detective)
+    document.getElementById('stat-locations').textContent = (fbt.location || []).length;
+    document.getElementById('stat-dns').textContent =
+        (fbt.dns_record || []).length + (fbt.ip_address || []).length;
+    document.getElementById('stat-photos').textContent = (fbt.photo_url || []).length;
+    document.getElementById('stat-messaging').textContent = (fbt.messaging_profile || []).length;
+    document.getElementById('stat-webmentions').textContent = (fbt.web_mention || []).length;
 
     // Findings by category - prioritize critical findings
     const container = document.getElementById('findings-container');

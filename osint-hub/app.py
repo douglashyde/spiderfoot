@@ -29,6 +29,88 @@ def results_page():
     return render_template("results.html")
 
 
+@app.route("/graph")
+def graph_page():
+    return render_template("graph.html")
+
+
+@app.route("/api/scan/graph")
+def api_scan_graph():
+    """Return findings as a D3.js-compatible force graph."""
+    results = orchestrator.get_results()
+    if not results or not results.get("findings_by_type"):
+        return jsonify({"nodes": [], "links": []})
+
+    nodes = []
+    links = []
+    node_ids = set()
+
+    # Add seed nodes
+    seeds = results.get("seeds", {})
+    for seed_type, seed_value in seeds.items():
+        if seed_value:
+            node_id = f"seed:{seed_type}:{seed_value}"
+            if node_id not in node_ids:
+                node_ids.add(node_id)
+                nodes.append({
+                    "id": node_id,
+                    "label": seed_value,
+                    "type": seed_type,
+                    "group": "seed",
+                    "size": 20,
+                })
+
+    # Add finding nodes
+    all_findings = []
+    for ftype, items in results.get("findings_by_type", {}).items():
+        for item in items:
+            all_findings.append(item)
+            node_id = f"{ftype}:{item.get('id', '')}"
+            if node_id not in node_ids:
+                node_ids.add(node_id)
+                nodes.append({
+                    "id": node_id,
+                    "label": str(item.get("value", ""))[:60],
+                    "type": ftype,
+                    "group": ftype,
+                    "size": max(6, int(item.get("confidence", 0.5) * 16)),
+                    "confidence": item.get("confidence", 0),
+                    "source": item.get("source_tool", ""),
+                    "metadata": item.get("metadata", {}),
+                })
+
+            # Link to seeds
+            for seed_type, seed_value in seeds.items():
+                if seed_value and (
+                    seed_value.lower() in str(item.get("value", "")).lower()
+                    or seed_value.lower() in str(item.get("metadata", {})).lower()
+                ):
+                    seed_node_id = f"seed:{seed_type}:{seed_value}"
+                    if seed_node_id in node_ids:
+                        links.append({
+                            "source": seed_node_id,
+                            "target": node_id,
+                            "value": item.get("confidence", 0.5),
+                        })
+
+            # Link to other findings via linked_to
+            for linked_id in item.get("linked_to", []):
+                target_node_id = None
+                for other in all_findings:
+                    if other.get("id") == linked_id:
+                        other_type = other.get("type", "raw")
+                        target_node_id = f"{other_type}:{linked_id}"
+                        break
+                if target_node_id and target_node_id in node_ids:
+                    links.append({
+                        "source": node_id,
+                        "target": target_node_id,
+                        "value": 0.5,
+                    })
+
+    return jsonify({"nodes": nodes, "links": links})
+
+
 @app.route("/api/scan/start", methods=["POST"])
 def api_start_scan():
     data = request.json

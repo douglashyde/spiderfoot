@@ -47,6 +47,12 @@ TOOL_PATHS = {
     "dns_recon": os.path.join(HOME_DIR, "osint-hub"),
     "public_records": os.path.join(HOME_DIR, "osint-hub"),
     "messaging_search": os.path.join(HOME_DIR, "osint-hub"),
+    # V4 - Detective tools (web-based)
+    "reverse_image": os.path.join(HOME_DIR, "osint-hub"),
+    "crypto_intel": os.path.join(HOME_DIR, "osint-hub"),
+    "threat_intel": os.path.join(HOME_DIR, "osint-hub"),
+    "wifi_geo": os.path.join(HOME_DIR, "osint-hub"),
+    "username_mutation": os.path.join(HOME_DIR, "osint-hub"),
 }
 
 DATA_DIR = os.path.join(BASE_DIR, "data")

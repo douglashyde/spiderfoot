@@ -37,6 +37,12 @@ from .document_search_tool import DocumentSearchTool
 from .dns_recon_tool import DnsReconTool
 from .public_records_tool import PublicRecordsTool
 from .messaging_search_tool import MessagingSearchTool
+# V4 - Detective tools
+from .reverse_image_tool import ReverseImageTool
+from .crypto_intel_tool import CryptoIntelTool
+from .threat_intel_tool import ThreatIntelTool
+from .wifi_geo_tool import WifiGeoTool
+from .username_mutation_tool import UsernameMutationTool
 
 
 ALL_TOOLS = {
@@ -91,6 +97,13 @@ ALL_TOOLS = {
     "dns_recon": DnsReconTool,
     "public_records": PublicRecordsTool,
     "messaging_search": MessagingSearchTool,
+
+    # V4 - Detective tools
+    "reverse_image": ReverseImageTool,
+    "crypto_intel": CryptoIntelTool,
+    "threat_intel": ThreatIntelTool,
+    "wifi_geo": WifiGeoTool,
+    "username_mutation": UsernameMutationTool,
 }
 
 # Which tools to run for each input type
@@ -107,6 +120,9 @@ INPUT_TOOL_MAP = {
         "wayback", "code_search", "forum_search",
         "document_search", "dns_recon", "public_records",
         "messaging_search",
+        # V4 detective tools
+        "reverse_image", "crypto_intel", "threat_intel",
+        "wifi_geo", "username_mutation",
     ],
     "username": [
         "sherlock", "maigret", "blackbird", "nexfil",
@@ -117,6 +133,8 @@ INPUT_TOOL_MAP = {
         "google_dorking", "deep_paste", "darkweb_search",
         "wayback", "code_search", "forum_search",
         "document_search", "public_records", "messaging_search",
+        # V4 detective tools
+        "reverse_image", "crypto_intel", "username_mutation",
     ],
     "phone": [
         "phoneinfoga", "ignorant", "dehashed_free",
@@ -132,12 +150,16 @@ INPUT_TOOL_MAP = {
         "wayback", "code_search", "forum_search",
         "document_search", "dns_recon", "public_records",
         "messaging_search",
+        # V4 detective tools
+        "threat_intel", "wifi_geo", "crypto_intel",
     ],
     "full_name": [
         # V3 - full_name now has direct tool support!
         "google_dorking", "darkweb_search", "wayback",
         "forum_search", "document_search", "public_records",
         "messaging_search",
+        # V4
+        "username_mutation",
     ],
 }
 
@@ -188,6 +210,13 @@ TOOL_PRIORITY = {
     "document_search": 34,
     "google_dorking": 35,
     "darkweb_search": 36,
+
+    # Tier 6: V4 Detective tools
+    "username_mutation": 37,
+    "reverse_image": 38,
+    "crypto_intel": 39,
+    "threat_intel": 40,
+    "wifi_geo": 41,
 }
 
 
