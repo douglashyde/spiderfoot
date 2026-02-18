@@ -26,6 +26,17 @@ from .emailrep_tool import EmailRepTool
 from .hudsonrock_tool import HudsonRockTool
 from .leakcheck_tool import LeakCheckTool
 from .dehashed_free_tool import DehashedFreeTool
+# V3 - Deep OSINT tools
+from .google_dorking_tool import GoogleDorkingTool
+from .deep_paste_tool import DeepPasteTool
+from .darkweb_search_tool import DarkWebSearchTool
+from .wayback_tool import WaybackTool
+from .code_search_tool import CodeSearchTool
+from .forum_search_tool import ForumSearchTool
+from .document_search_tool import DocumentSearchTool
+from .dns_recon_tool import DnsReconTool
+from .public_records_tool import PublicRecordsTool
+from .messaging_search_tool import MessagingSearchTool
 
 
 ALL_TOOLS = {
@@ -68,6 +79,18 @@ ALL_TOOLS = {
 
     # Frameworks
     "spiderfoot": SpiderfootTool,
+
+    # V3 - Deep OSINT
+    "google_dorking": GoogleDorkingTool,
+    "deep_paste": DeepPasteTool,
+    "darkweb_search": DarkWebSearchTool,
+    "wayback": WaybackTool,
+    "code_search": CodeSearchTool,
+    "forum_search": ForumSearchTool,
+    "document_search": DocumentSearchTool,
+    "dns_recon": DnsReconTool,
+    "public_records": PublicRecordsTool,
+    "messaging_search": MessagingSearchTool,
 }
 
 # Which tools to run for each input type
@@ -79,22 +102,42 @@ INPUT_TOOL_MAP = {
         "breachdirectory", "hudsonrock", "leakcheck",
         "dehashed_free", "psbdmp", "intelx_phonebook",
         "socialscan",
+        # V3 deep tools
+        "google_dorking", "deep_paste", "darkweb_search",
+        "wayback", "code_search", "forum_search",
+        "document_search", "dns_recon", "public_records",
+        "messaging_search",
     ],
     "username": [
         "sherlock", "maigret", "blackbird", "nexfil",
         "social_analyzer", "leaksearch", "comb2passlist",
         "socialscan", "hudsonrock", "psbdmp",
         "dehashed_free",
+        # V3 deep tools
+        "google_dorking", "deep_paste", "darkweb_search",
+        "wayback", "code_search", "forum_search",
+        "document_search", "public_records", "messaging_search",
     ],
     "phone": [
         "phoneinfoga", "ignorant", "dehashed_free",
+        # V3 deep tools
+        "google_dorking", "deep_paste", "darkweb_search",
+        "public_records", "messaging_search",
     ],
     "domain": [
         "theharvester", "spiderfoot", "photon",
         "intelx_phonebook", "psbdmp", "hudsonrock",
+        # V3 deep tools
+        "google_dorking", "deep_paste", "darkweb_search",
+        "wayback", "code_search", "forum_search",
+        "document_search", "dns_recon", "public_records",
+        "messaging_search",
     ],
     "full_name": [
-        # Name-based searches are done by extracting usernames first
+        # V3 - full_name now has direct tool support!
+        "google_dorking", "darkweb_search", "wayback",
+        "forum_search", "document_search", "public_records",
+        "messaging_search",
     ],
 }
 
@@ -133,6 +176,18 @@ TOOL_PRIORITY = {
     "photon": 24,
     "ghunt": 25,
     "spiderfoot": 26,
+
+    # Tier 5: V3 Deep OSINT (web-based, medium speed)
+    "code_search": 27,
+    "dns_recon": 28,
+    "forum_search": 29,
+    "wayback": 30,
+    "deep_paste": 31,
+    "public_records": 32,
+    "messaging_search": 33,
+    "document_search": 34,
+    "google_dorking": 35,
+    "darkweb_search": 36,
 }
 
 

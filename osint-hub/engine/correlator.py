@@ -645,6 +645,10 @@ class Correlator:
             "holehe", "h8mail", "xposedornot", "cr3dov3r", "emailrep",
             "hudsonrock", "breachdirectory", "leakcheck", "dehashed_free",
             "psbdmp", "intelx_phonebook", "socialscan",
+            "google_dorking", "deep_paste", "darkweb_search",
+            "wayback", "code_search", "forum_search",
+            "document_search", "dns_recon", "public_records",
+            "messaging_search",
         ]
         for em in all_emails:
             # Skip generated/low-confidence emails unless they come from a tool
@@ -668,6 +672,9 @@ class Correlator:
         username_tools = [
             "sherlock", "maigret", "blackbird", "nexfil",
             "social_analyzer", "leaksearch", "comb2passlist", "socialscan",
+            "google_dorking", "deep_paste", "darkweb_search",
+            "wayback", "code_search", "forum_search",
+            "public_records", "messaging_search",
         ]
         for un in all_usernames:
             if un.metadata.get("generated") and un.confidence < 0.5:
@@ -687,7 +694,11 @@ class Correlator:
             self.profile.get_findings_by_type(FindingType.PHONE) +
             self.profile.get_findings_by_type(FindingType.RELATED_PHONE)
         )
-        phone_tools = ["phoneinfoga", "ignorant"]
+        phone_tools = [
+            "phoneinfoga", "ignorant",
+            "google_dorking", "deep_paste", "darkweb_search",
+            "public_records", "messaging_search",
+        ]
         for phone in all_phones:
             for tool in phone_tools:
                 if f"{tool}:{phone.value}" not in completed_runs:
@@ -704,7 +715,13 @@ class Correlator:
             self.profile.get_findings_by_type(FindingType.DOMAIN) +
             self.profile.get_findings_by_type(FindingType.RELATED_DOMAIN)
         )
-        domain_tools = ["theharvester", "photon", "spiderfoot", "intelx_phonebook"]
+        domain_tools = [
+            "theharvester", "photon", "spiderfoot", "intelx_phonebook",
+            "google_dorking", "deep_paste", "darkweb_search",
+            "wayback", "code_search", "forum_search",
+            "document_search", "dns_recon", "public_records",
+            "messaging_search",
+        ]
         for dom in all_domains:
             for tool in domain_tools:
                 if f"{tool}:{dom.value}" not in completed_runs:

@@ -36,6 +36,17 @@ TOOL_PATHS = {
     "emailrep": os.path.join(HOME_DIR, "osint-hub"),
     "intelx_phonebook": os.path.join(HOME_DIR, "osint-hub"),
     "psbdmp": os.path.join(HOME_DIR, "osint-hub"),
+    # V3 - Deep OSINT (web-based tools, no local path needed)
+    "google_dorking": os.path.join(HOME_DIR, "osint-hub"),
+    "deep_paste": os.path.join(HOME_DIR, "osint-hub"),
+    "darkweb_search": os.path.join(HOME_DIR, "osint-hub"),
+    "wayback": os.path.join(HOME_DIR, "osint-hub"),
+    "code_search": os.path.join(HOME_DIR, "osint-hub"),
+    "forum_search": os.path.join(HOME_DIR, "osint-hub"),
+    "document_search": os.path.join(HOME_DIR, "osint-hub"),
+    "dns_recon": os.path.join(HOME_DIR, "osint-hub"),
+    "public_records": os.path.join(HOME_DIR, "osint-hub"),
+    "messaging_search": os.path.join(HOME_DIR, "osint-hub"),
 }
 
 DATA_DIR = os.path.join(BASE_DIR, "data")

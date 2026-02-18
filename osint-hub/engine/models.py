@@ -36,6 +36,16 @@ class FindingType(str, Enum):
     EDUCATION = "education"
     SOCIAL_CONNECTION = "social_connection"
     RAW = "raw"
+    # V3 deep OSINT types
+    DARK_WEB_MENTION = "dark_web_mention"
+    CODE_REPOSITORY = "code_repository"
+    FORUM_POST = "forum_post"
+    ARCHIVED_PAGE = "archived_page"
+    DNS_RECORD = "dns_record"
+    CERTIFICATE = "certificate"
+    PUBLIC_RECORD = "public_record"
+    WEB_MENTION = "web_mention"
+    MESSAGING_PROFILE = "messaging_profile"
 
 
 class ToolStatus(str, Enum):

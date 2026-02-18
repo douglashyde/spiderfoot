@@ -15,35 +15,35 @@
                     <label class="block text-sm font-medium text-gray-300 mb-1">Email Address</label>
                     <input type="email" name="email" id="input-email" placeholder="target@example.com"
                         class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
-                    <p class="text-xs text-gray-500 mt-1">Checks: holehe, breaches, theHarvester, GHunt</p>
+                    <p class="text-xs text-gray-500 mt-1">36 tools: holehe, breaches, dorking, dark web, paste sites, code search +more</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Username(s)</label>
                     <input type="text" name="username" id="input-username" placeholder="johndoe"
                         class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
-                    <p class="text-xs text-gray-500 mt-1">Checks: sherlock, maigret, blackbird, nexfil (comma-separate multiple)</p>
+                    <p class="text-xs text-gray-500 mt-1">36 tools: sherlock, maigret, GitHub, Reddit, Telegram, forums +more</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Phone Number</label>
                     <input type="tel" name="phone" id="input-phone" placeholder="+1234567890"
                         class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
-                    <p class="text-xs text-gray-500 mt-1">Checks: phoneinfoga (include country code)</p>
+                    <p class="text-xs text-gray-500 mt-1">8 tools: phoneinfoga, dorking, dark web, public records (include country code)</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
                     <input type="text" name="full_name" id="input-fullname" placeholder="John Doe"
                         class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
-                    <p class="text-xs text-gray-500 mt-1">Used for correlation and verification</p>
+                    <p class="text-xs text-gray-500 mt-1">7 tools: dorking, dark web, forums, public records, documents, wayback +more</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">Domain</label>
                     <input type="text" name="domain" id="input-domain" placeholder="example.com"
                         class="w-full bg-dark-900 border border-purple-900/30 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:border-purple-500 focus:outline-none mono text-sm">
-                    <p class="text-xs text-gray-500 mt-1">Checks: theHarvester, spiderfoot</p>
+                    <p class="text-xs text-gray-500 mt-1">16 tools: theHarvester, DNS/CT recon, Shodan, dorking, dark web +more</p>
                 </div>
 
                 <div class="pt-2 space-y-3">
@@ -108,6 +108,29 @@
                 <div class="text-xs text-gray-500">Credentials</div>
             </div>
         </div>
+        <!-- V3 Extended Stats -->
+        <div id="stats-v3-section" class="grid grid-cols-5 gap-3" style="display:none">
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-amber-400 mono" id="stat-darkweb">0</div>
+                <div class="text-xs text-gray-500">Dark Web</div>
+            </div>
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-lime-400 mono" id="stat-code">0</div>
+                <div class="text-xs text-gray-500">Code Repos</div>
+            </div>
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-orange-400 mono" id="stat-pastes">0</div>
+                <div class="text-xs text-gray-500">Pastes</div>
+            </div>
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-sky-400 mono" id="stat-forums">0</div>
+                <div class="text-xs text-gray-500">Forum Posts</div>
+            </div>
+            <div class="card rounded-lg p-3 text-center">
+                <div class="text-2xl font-bold text-indigo-400 mono" id="stat-documents">0</div>
+                <div class="text-xs text-gray-500">Documents</div>
+            </div>
+        </div>
 
         <!-- Findings by Category -->
         <div id="findings-section" style="display:none">
@@ -138,6 +161,7 @@ const CATEGORY_CONFIG = {
     registered_site: { label: 'Registered Sites', color: 'text-cyan-400', bg: 'bg-cyan-900/20' },
     leaked_credential: { label: 'Leaked Credentials', color: 'text-red-500', bg: 'bg-red-900/30' },
     breach: { label: 'Breaches', color: 'text-cyber-red', bg: 'bg-red-900/20' },
+    password_hash: { label: 'Password Hashes', color: 'text-red-400', bg: 'bg-red-900/20' },
     email: { label: 'Emails', color: 'text-purple-400', bg: 'bg-purple-900/20' },
     related_email: { label: 'Related Emails', color: 'text-purple-300', bg: 'bg-purple-900/20' },
     username: { label: 'Usernames', color: 'text-cyber-green', bg: 'bg-green-900/20' },
@@ -148,8 +172,28 @@ const CATEGORY_CONFIG = {
     location: { label: 'Locations', color: 'text-orange-400', bg: 'bg-orange-900/20' },
     photo_url: { label: 'Photos', color: 'text-pink-400', bg: 'bg-pink-900/20' },
     domain: { label: 'Domains', color: 'text-teal-400', bg: 'bg-teal-900/20' },
+    related_domain: { label: 'Related Domains', color: 'text-teal-300', bg: 'bg-teal-900/20' },
+    subdomain: { label: 'Subdomains', color: 'text-teal-200', bg: 'bg-teal-900/20' },
     ip_address: { label: 'IP Addresses', color: 'text-gray-300', bg: 'bg-gray-800' },
-    raw: { label: 'Intelligence', color: 'text-gray-400', bg: 'bg-gray-800' },
+    // V3 Deep OSINT categories
+    dark_web_mention: { label: 'Dark Web Mentions', color: 'text-amber-400', bg: 'bg-amber-900/30' },
+    code_repository: { label: 'Code Repositories', color: 'text-lime-400', bg: 'bg-lime-900/20' },
+    forum_post: { label: 'Forum Posts', color: 'text-sky-400', bg: 'bg-sky-900/20' },
+    paste: { label: 'Pastes & Dumps', color: 'text-orange-400', bg: 'bg-orange-900/20' },
+    archived_page: { label: 'Archived Pages', color: 'text-violet-400', bg: 'bg-violet-900/20' },
+    document_url: { label: 'Documents & Files', color: 'text-indigo-400', bg: 'bg-indigo-900/20' },
+    dns_record: { label: 'DNS Records', color: 'text-emerald-400', bg: 'bg-emerald-900/20' },
+    certificate: { label: 'Certificates', color: 'text-emerald-300', bg: 'bg-emerald-900/20' },
+    public_record: { label: 'Public Records', color: 'text-rose-400', bg: 'bg-rose-900/20' },
+    web_mention: { label: 'Web Mentions', color: 'text-slate-300', bg: 'bg-slate-800/50' },
+    messaging_profile: { label: 'Messaging Profiles', color: 'text-fuchsia-400', bg: 'bg-fuchsia-900/20' },
+    employer: { label: 'Employers', color: 'text-amber-300', bg: 'bg-amber-900/20' },
+    organization: { label: 'Organizations', color: 'text-amber-200', bg: 'bg-amber-900/20' },
+    education: { label: 'Education', color: 'text-blue-300', bg: 'bg-blue-900/20' },
+    address: { label: 'Addresses', color: 'text-rose-300', bg: 'bg-rose-900/20' },
+    technology: { label: 'Technologies', color: 'text-cyan-300', bg: 'bg-cyan-900/20' },
+    bio: { label: 'Bios', color: 'text-gray-300', bg: 'bg-gray-800' },
+    raw: { label: 'Raw Intelligence', color: 'text-gray-400', bg: 'bg-gray-800' },
 };
 
 const STATUS_COLORS = {
@@ -186,6 +230,7 @@ document.getElementById('scan-form').addEventListener('submit', function(e) {
         document.getElementById('btn-stop').style.display = 'block';
         document.getElementById('progress-section').style.display = 'block';
         document.getElementById('stats-section').style.display = 'grid';
+        document.getElementById('stats-v3-section').style.display = 'grid';
         document.getElementById('findings-section').style.display = 'block';
         document.getElementById('tool-runs-section').style.display = 'block';
         document.getElementById('log-section').style.display = 'block';
@@ -256,22 +301,37 @@ function updateResults(results) {
     if (!results || !results.findings_by_type) return;
     const fbt = results.findings_by_type;
 
-    // Stats
+    // Stats - row 1
     document.getElementById('stat-findings').textContent = results.total_findings || 0;
     document.getElementById('stat-tools').textContent = results.total_tool_runs || 0;
-    document.getElementById('stat-profiles').textContent = (fbt.social_profile || []).length;
+    document.getElementById('stat-profiles').textContent =
+        (fbt.social_profile || []).length + (fbt.messaging_profile || []).length;
     document.getElementById('stat-breaches').textContent = (fbt.breach || []).length;
-    document.getElementById('stat-credentials').textContent = (fbt.leaked_credential || []).length;
+    document.getElementById('stat-credentials').textContent =
+        (fbt.leaked_credential || []).length + (fbt.password_hash || []).length;
 
-    // Findings by category - prioritize credentials and profiles
+    // Stats - row 2 (V3 deep)
+    document.getElementById('stat-darkweb').textContent = (fbt.dark_web_mention || []).length;
+    document.getElementById('stat-code').textContent = (fbt.code_repository || []).length;
+    document.getElementById('stat-pastes').textContent = (fbt.paste || []).length;
+    document.getElementById('stat-forums').textContent = (fbt.forum_post || []).length;
+    document.getElementById('stat-documents').textContent =
+        (fbt.document_url || []).length + (fbt.archived_page || []).length;
+
+    // Findings by category - prioritize critical findings
     const container = document.getElementById('findings-container');
     container.innerHTML = '';
 
     const categoryOrder = [
-        'leaked_credential', 'social_profile', 'breach', 'registered_site',
+        'leaked_credential', 'password_hash', 'breach',
+        'dark_web_mention', 'social_profile', 'messaging_profile',
+        'registered_site', 'code_repository', 'paste', 'forum_post',
         'email', 'related_email', 'username', 'related_username',
         'phone', 'related_phone', 'full_name', 'photo_url',
-        'location', 'domain', 'ip_address', 'raw',
+        'archived_page', 'document_url', 'public_record', 'web_mention',
+        'location', 'address', 'employer', 'organization', 'education',
+        'domain', 'related_domain', 'subdomain', 'dns_record', 'certificate',
+        'ip_address', 'technology', 'bio', 'raw',
     ];
     const sortedTypes = Object.keys(fbt).sort((a, b) => {
         const orderA = categoryOrder.indexOf(a);
@@ -320,6 +380,51 @@ function updateResults(results) {
             } else if (ftype === 'social_profile' && meta.site) {
                 let parts = [`<span class="text-gray-600">${escapeHtml(meta.site)}</span>`];
                 if (meta.registration_confirmed) parts.push(`<span class="text-cyan-400">registered</span>`);
+                metaHtml = `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>`;
+            } else if (ftype === 'dark_web_mention') {
+                let parts = [];
+                if (meta.title) parts.push(`<span class="text-amber-300">${escapeHtml(meta.title)}</span>`);
+                if (meta.source) parts.push(`<span class="text-gray-600">via ${escapeHtml(meta.source)}</span>`);
+                if (meta.date) parts.push(`<span class="text-gray-600">${escapeHtml(meta.date)}</span>`);
+                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
+            } else if (ftype === 'code_repository') {
+                let parts = [];
+                if (meta.repo) parts.push(`<span class="text-lime-300">${escapeHtml(meta.repo)}</span>`);
+                if (meta.language) parts.push(`<span class="text-gray-500">${escapeHtml(meta.language)}</span>`);
+                if (meta.snippet) parts.push(`<span class="text-gray-600 truncate max-w-xs inline-block">${escapeHtml(meta.snippet.substring(0,100))}</span>`);
+                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
+            } else if (ftype === 'forum_post') {
+                let parts = [];
+                if (meta.title) parts.push(`<span class="text-sky-300">${escapeHtml(meta.title.substring(0,80))}</span>`);
+                if (meta.platform) parts.push(`<span class="text-gray-500">${escapeHtml(meta.platform)}</span>`);
+                if (meta.subreddit) parts.push(`<span class="text-orange-300">r/${escapeHtml(meta.subreddit)}</span>`);
+                if (meta.score) parts.push(`<span class="text-gray-600">${meta.score} pts</span>`);
+                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
+            } else if (ftype === 'archived_page') {
+                let parts = [];
+                if (meta.original_url) parts.push(`<span class="text-violet-300">${escapeHtml(meta.original_url.substring(0,60))}</span>`);
+                if (meta.platform) parts.push(`<span class="text-gray-500">${escapeHtml(meta.platform)}</span>`);
+                if (meta.timestamp) parts.push(`<span class="text-gray-600">${escapeHtml(meta.timestamp)}</span>`);
+                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
+            } else if (ftype === 'dns_record') {
+                let parts = [];
+                if (meta.record_type) parts.push(`<span class="text-emerald-300">${escapeHtml(meta.record_type)}</span>`);
+                if (meta.ip) parts.push(`<span class="text-gray-500">${escapeHtml(meta.ip)}</span>`);
+                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
+            } else if (ftype === 'messaging_profile') {
+                let parts = [];
+                if (meta.platform) parts.push(`<span class="text-fuchsia-300">${escapeHtml(meta.platform)}</span>`);
+                if (meta.title) parts.push(`<span class="text-gray-400">${escapeHtml(meta.title)}</span>`);
+                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
+            } else if (ftype === 'document_url') {
+                let parts = [];
+                if (meta.file_type) parts.push(`<span class="text-indigo-300">${escapeHtml(meta.file_type.toUpperCase())}</span>`);
+                if (meta.title) parts.push(`<span class="text-gray-500">${escapeHtml(meta.title.substring(0,80))}</span>`);
+                if (meta.sensitive) parts.push(`<span class="text-red-400 font-bold">SENSITIVE</span>`);
+                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
+            } else if (ftype === 'web_mention' && meta.title) {
+                let parts = [`<span class="text-gray-400">${escapeHtml(meta.title.substring(0,80))}</span>`];
+                if (meta.context) parts.push(`<span class="text-yellow-400">${escapeHtml(meta.context)}</span>`);
                 metaHtml = `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>`;
             }
 
