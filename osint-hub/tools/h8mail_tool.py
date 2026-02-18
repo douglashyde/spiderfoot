@@ -2,6 +2,9 @@
 import re
 from .base import ToolWrapper, Finding, FindingType
 
+# Strip ANSI escape codes from output
+_ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
+
 
 class H8mailTool(ToolWrapper):
     name = "h8mail"
@@ -16,11 +19,14 @@ class H8mailTool(ToolWrapper):
 
         cmd = ["h8mail", "-t", input_value]
         raw = self._run_command(cmd)
+        # Strip ANSI escape codes before parsing
+        raw = _ANSI_RE.sub('', raw)
         tool_run.raw_output = raw
 
-        # Parse h8mail output for breach info
         for line in raw.split("\n"):
             line = line.strip()
+            if not line:
+                continue
             # h8mail outputs breach names and sometimes passwords
             if "breach" in line.lower() or "leak" in line.lower():
                 findings.append(Finding(
@@ -30,13 +36,18 @@ class H8mailTool(ToolWrapper):
                     confidence=0.7,
                     metadata={"email": input_value, "type": "breach_info"},
                 ))
-            # Look for related emails
+            # Look for related emails (but validate they're real)
             emails = re.findall(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", line)
             for email in emails:
-                if email.lower() != input_value.lower():
+                email = email.lower()
+                # Skip the input email and obvious junk
+                if email == input_value.lower():
+                    continue
+                # Validate it looks like a real email (no ANSI remnants)
+                if re.match(r'^[a-zA-Z0-9][a-zA-Z0-9._%+-]*@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
                     findings.append(Finding(
                         FindingType.RELATED_EMAIL,
-                        email.lower(),
+                        email,
                         source_tool=self.name,
                         confidence=0.6,
                         metadata={"found_with": input_value},

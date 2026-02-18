@@ -218,10 +218,11 @@ class Orchestrator:
             self.status.log_event(f"  {tool.name}: ERROR - {str(e)}")
 
         self.status.completed_tools += 1
-        if self.status.total_tools > 0:
-            self.status.progress = int(
-                (self.status.completed_tools / self.status.total_tools) * 90
-            )
+        total = max(self.status.total_tools, self.status.completed_tools)
+        if total > 0:
+            self.status.progress = min(90, int(
+                (self.status.completed_tools / total) * 90
+            ))
 
     def get_status(self):
         return self.status.to_dict()

@@ -8,7 +8,7 @@ class SocialAnalyzerTool(ToolWrapper):
     description = "Detect social media accounts by username"
     accepts_input = ["username"]
     category = "username_search"
-    pip_module = "social_analyzer"
+    # Not pip-installable as "social_analyzer" - it's a node.js app
     cli_command = "social-analyzer"
 
     def _execute(self, input_type, input_value, tool_run):
