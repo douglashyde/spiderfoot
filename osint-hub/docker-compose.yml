@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  osint-hub:
+    build: .
+    container_name: osint-hub
+    restart: unless-stopped
+    ports:
+      - "80:8080"
+    environment:
+      - OSINT_HOME=/opt
+      - PORT=8080
+      - HOST=0.0.0.0
+    volumes:
+      - osint-data:/opt/osint-hub/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/tools"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  osint-data:
