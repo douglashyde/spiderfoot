@@ -47,31 +47,38 @@ else
 fi
 echo "  Done."
 
-# Python deps
-echo "[3/6] Installing Python dependencies..."
-pip3 install flask requests 2>/dev/null || pip install flask requests
+# Create virtual environment
+echo "[3/6] Setting up Python virtual environment..."
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip > /dev/null 2>&1
+pip install flask requests > /dev/null 2>&1
 echo "  Done."
 
 # Install tool dependencies
 echo "[4/6] Installing tool dependencies..."
 
 # holehe
-pip3 install holehe 2>/dev/null || true
+pip install holehe 2>/dev/null || true
 
 # maigret
-pip3 install maigret 2>/dev/null || true
+pip install maigret 2>/dev/null || true
 
 # sherlock
-cd tools-repos/sherlock && pip3 install -r requirements.txt 2>/dev/null || true && cd ../..
+pip install sherlock-project 2>/dev/null || true
 
 # theHarvester
-cd tools-repos/theHarvester && pip3 install -r requirements.txt 2>/dev/null || true && cd ../..
+if [ -d "tools-repos/theHarvester" ] && [ -f "tools-repos/theHarvester/requirements.txt" ]; then
+    pip install -r tools-repos/theHarvester/requirements.txt 2>/dev/null || true
+fi
 
 # Cr3dOv3r
-cd tools-repos/Cr3dOv3r && pip3 install -r requirements.txt 2>/dev/null || true && cd ../..
+if [ -d "tools-repos/Cr3dOv3r" ] && [ -f "tools-repos/Cr3dOv3r/requirements.txt" ]; then
+    pip install -r tools-repos/Cr3dOv3r/requirements.txt 2>/dev/null || true
+fi
 
 # h8mail
-pip3 install h8mail 2>/dev/null || true
+pip install h8mail 2>/dev/null || true
 
 # phoneinfoga (Go binary)
 if ! command -v phoneinfoga &> /dev/null; then
@@ -80,7 +87,7 @@ if ! command -v phoneinfoga &> /dev/null; then
 fi
 
 # social-analyzer
-pip3 install social-analyzer 2>/dev/null || true
+pip install social-analyzer 2>/dev/null || true
 
 echo "  Done."
 
@@ -148,7 +155,7 @@ After=network.target
 Type=simple
 User=ubuntu
 WorkingDirectory=${DEPLOY_DIR}/osint-hub
-ExecStart=/usr/bin/python3 ${DEPLOY_DIR}/osint-hub/app.py
+ExecStart=${DEPLOY_DIR}/venv/bin/python3 ${DEPLOY_DIR}/osint-hub/app.py
 Restart=always
 RestartSec=5
 Environment=PORT=5000
