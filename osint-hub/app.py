@@ -161,8 +161,9 @@ if __name__ == "__main__":
     host = os.environ.get("HOST", "0.0.0.0")
     print(f"""
     ╔══════════════════════════════════════════╗
-    ║          OSINT Hub v1.0                  ║
+    ║          OSINT Hub V5                    ║
     ║   Unified OSINT Intelligence Platform    ║
+    ║   41 tools | Expandable results | URLs   ║
     ╠══════════════════════════════════════════╣
     ║   http://{host}:{port}                   ║
     ╚══════════════════════════════════════════╝

@@ -1,11 +1,14 @@
 {% extends "base.html" %}
-{% block title %}OSINT Hub - Results{% endblock %}
+{% block title %}OSINT Hub V5 - Results{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <div class="flex items-center justify-between">
         <h2 class="text-2xl font-bold text-white">Scan Results</h2>
         <div class="flex gap-3">
+            <button onclick="toggleAllDropdowns()" class="px-4 py-2 bg-gray-800/60 text-gray-300 border border-gray-700/50 rounded-lg hover:bg-gray-700/60 transition text-sm">
+                Expand / Collapse All
+            </button>
             <button onclick="exportJSON()" class="px-4 py-2 bg-purple-900/40 text-purple-400 border border-purple-900/50 rounded-lg hover:bg-purple-900/60 transition text-sm">
                 Export JSON
             </button>
@@ -42,12 +45,24 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+    .finding-row { cursor: pointer; transition: all 0.15s ease; }
+    .finding-row:hover { background: rgba(83, 52, 131, 0.15) !important; }
+    .finding-details { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; }
+    .finding-details.open { max-height: 800px; padding-top: 0.75rem; }
+    .chevron { transition: transform 0.2s ease; display: inline-block; }
+    .chevron.open { transform: rotate(90deg); }
+    .meta-table td { padding: 0.25rem 0.75rem 0.25rem 0; vertical-align: top; }
+    .meta-key { color: #9ca3af; white-space: nowrap; }
+    .meta-val { color: #e5e7eb; word-break: break-all; }
+</style>
 <script>
 const CATEGORY_CONFIG = {
     social_profile: { label: 'Social Profiles', color: 'text-cyber-blue', icon: '&#127760;' },
     registered_site: { label: 'Registered Sites', color: 'text-cyan-400', icon: '&#128274;' },
     leaked_credential: { label: 'Leaked Credentials', color: 'text-red-500', icon: '&#128272;' },
     breach: { label: 'Data Breaches', color: 'text-cyber-red', icon: '&#9888;' },
+    password_hash: { label: 'Password Hashes', color: 'text-red-400', icon: '&#128273;' },
     email: { label: 'Emails', color: 'text-purple-400', icon: '&#9993;' },
     related_email: { label: 'Related Emails', color: 'text-purple-300', icon: '&#9993;' },
     username: { label: 'Usernames', color: 'text-cyber-green', icon: '&#128100;' },
@@ -58,20 +73,43 @@ const CATEGORY_CONFIG = {
     location: { label: 'Locations', color: 'text-orange-400', icon: '&#128205;' },
     photo_url: { label: 'Photos', color: 'text-pink-400', icon: '&#128247;' },
     domain: { label: 'Domains', color: 'text-teal-400', icon: '&#127760;' },
+    related_domain: { label: 'Related Domains', color: 'text-teal-300', icon: '&#127760;' },
+    subdomain: { label: 'Subdomains', color: 'text-teal-200', icon: '&#127760;' },
     ip_address: { label: 'IP Addresses', color: 'text-gray-300', icon: '&#128421;' },
     organization: { label: 'Organizations', color: 'text-blue-300', icon: '&#127970;' },
+    dark_web_mention: { label: 'Dark Web Mentions', color: 'text-amber-400', icon: '&#128065;' },
+    code_repository: { label: 'Code Repositories', color: 'text-lime-400', icon: '&#128187;' },
+    forum_post: { label: 'Forum Posts', color: 'text-sky-400', icon: '&#128172;' },
+    paste: { label: 'Pastes & Dumps', color: 'text-orange-400', icon: '&#128196;' },
+    archived_page: { label: 'Archived Pages', color: 'text-violet-400', icon: '&#128214;' },
+    document_url: { label: 'Documents', color: 'text-indigo-400', icon: '&#128196;' },
+    dns_record: { label: 'DNS Records', color: 'text-emerald-400', icon: '&#128268;' },
+    certificate: { label: 'Certificates', color: 'text-emerald-300', icon: '&#128274;' },
+    public_record: { label: 'Public Records', color: 'text-rose-400', icon: '&#128220;' },
+    web_mention: { label: 'Web Mentions', color: 'text-slate-300', icon: '&#128269;' },
+    messaging_profile: { label: 'Messaging Profiles', color: 'text-fuchsia-400', icon: '&#128172;' },
+    employer: { label: 'Employers', color: 'text-amber-300', icon: '&#127970;' },
+    education: { label: 'Education', color: 'text-blue-300', icon: '&#127891;' },
+    address: { label: 'Addresses', color: 'text-rose-300', icon: '&#127968;' },
+    technology: { label: 'Technologies', color: 'text-cyan-300', icon: '&#9881;' },
+    bio: { label: 'Bios', color: 'text-gray-300', icon: '&#128221;' },
     raw: { label: 'Raw Intelligence', color: 'text-gray-400', icon: '&#128196;' },
 };
 
-// Priority ordering for display
 const CATEGORY_ORDER = [
-    'leaked_credential', 'social_profile', 'breach', 'registered_site',
+    'leaked_credential', 'password_hash', 'breach',
+    'dark_web_mention', 'social_profile', 'messaging_profile',
+    'registered_site', 'code_repository', 'paste', 'forum_post',
     'email', 'related_email', 'username', 'related_username',
     'phone', 'related_phone', 'full_name', 'photo_url',
-    'location', 'domain', 'ip_address', 'organization', 'raw',
+    'archived_page', 'document_url', 'public_record', 'web_mention',
+    'location', 'address', 'employer', 'organization', 'education',
+    'domain', 'related_domain', 'subdomain', 'dns_record', 'certificate',
+    'ip_address', 'technology', 'bio', 'raw',
 ];
 
 let scanResults = null;
+let allExpanded = false;
 
 function loadResults() {
     Promise.all([
@@ -121,9 +159,54 @@ function renderSummary(results) {
     }
 }
 
+function toggleDropdown(id) {
+    const el = document.getElementById('details-' + id);
+    const chevron = document.getElementById('chevron-' + id);
+    if (el) {
+        el.classList.toggle('open');
+        if (chevron) chevron.classList.toggle('open');
+    }
+}
+
+function toggleAllDropdowns() {
+    allExpanded = !allExpanded;
+    document.querySelectorAll('.finding-details').forEach(el => {
+        if (allExpanded) el.classList.add('open');
+        else el.classList.remove('open');
+    });
+    document.querySelectorAll('.chevron').forEach(el => {
+        if (allExpanded) el.classList.add('open');
+        else el.classList.remove('open');
+    });
+}
+
+function renderMetaTable(meta) {
+    if (!meta || Object.keys(meta).length === 0) return '<span class="text-gray-600 text-xs">No additional data</span>';
+    let html = '<table class="meta-table text-xs mono w-full">';
+    for (const [key, val] of Object.entries(meta)) {
+        let displayVal;
+        if (typeof val === 'object' && val !== null) {
+            displayVal = '<pre class="text-xs text-gray-300 whitespace-pre-wrap">' + escapeHtml(JSON.stringify(val, null, 2)) + '</pre>';
+        } else if (typeof val === 'boolean') {
+            displayVal = val ? '<span class="text-green-400">true</span>' : '<span class="text-red-400">false</span>';
+        } else {
+            displayVal = escapeHtml(String(val));
+        }
+        // Make URLs clickable in values
+        if (typeof val === 'string' && val.startsWith('http')) {
+            displayVal = `<a href="${escapeHtml(val)}" target="_blank" class="text-purple-400 hover:underline">${escapeHtml(val)}</a>`;
+        }
+        // Highlight sensitive fields
+        const isSensitive = ['password', 'password_hash', 'credential'].includes(key);
+        const valClass = isSensitive ? 'text-red-400' : 'meta-val';
+        html += `<tr><td class="meta-key">${escapeHtml(key)}</td><td class="${valClass}">${displayVal}</td></tr>`;
+    }
+    html += '</table>';
+    return html;
+}
+
 function renderFindings(fbt) {
     const container = document.getElementById('results-findings');
-    // Sort by priority order, then by count
     const sortedTypes = Object.keys(fbt).sort((a, b) => {
         const orderA = CATEGORY_ORDER.indexOf(a);
         const orderB = CATEGORY_ORDER.indexOf(b);
@@ -133,6 +216,7 @@ function renderFindings(fbt) {
         return (fbt[b] || []).length - (fbt[a] || []).length;
     });
 
+    let globalIdx = 0;
     for (const ftype of sortedTypes) {
         const items = fbt[ftype];
         if (!items || items.length === 0) continue;
@@ -143,80 +227,57 @@ function renderFindings(fbt) {
                 <h3 class="text-lg font-semibold ${config.color}"><span class="mr-2">${config.icon}</span>${config.label}</h3>
                 <span class="mono text-sm ${config.color}">${items.length}</span>
             </div>
-            <div class="space-y-2">`;
+            <div class="space-y-1">`;
 
         for (const item of items) {
+            const idx = globalIdx++;
             const isUrl = (item.value || '').startsWith('http');
             const confidence = Math.round((item.confidence || 0) * 100);
             const meta = item.metadata || {};
+            const confidenceColor = confidence > 80 ? 'bg-green-500' : confidence > 50 ? 'bg-yellow-500' : 'bg-gray-600';
+            const metaCount = Object.keys(meta).length;
 
-            // Build metadata display based on finding type
-            let metaHtml = '';
-            if (ftype === 'leaked_credential') {
-                metaHtml = renderCredentialMeta(meta);
-            } else if (ftype === 'breach') {
-                metaHtml = renderBreachMeta(meta);
-            } else if (ftype === 'social_profile') {
-                metaHtml = renderProfileMeta(meta);
-            } else {
-                const metaStr = Object.entries(meta)
-                    .filter(([k]) => !['type'].includes(k))
-                    .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
-                    .join(' | ');
-                metaHtml = metaStr ? `<div class="text-xs text-gray-600 mt-1 truncate">${metaStr}</div>` : '';
-            }
+            // Quick summary from metadata
+            let quickMeta = '';
+            if (meta.site) quickMeta += `<span class="text-gray-500">${escapeHtml(meta.site)}</span> `;
+            if (meta.username) quickMeta += `<span class="text-green-400">@${escapeHtml(meta.username)}</span> `;
+            if (meta.password) quickMeta += `<span class="text-red-400">pw exposed</span> `;
+            if (meta.password_exposed) quickMeta += `<span class="text-red-500 font-bold">PW EXPOSED</span> `;
+            if (meta.registration_confirmed) quickMeta += `<span class="text-cyan-400">registered</span> `;
 
-            html += `<div class="p-3 rounded-lg bg-dark-900/50 border border-gray-800/50">
-                <div class="flex items-center justify-between">
-                    <div class="flex-1 min-w-0">
-                        ${isUrl ? `<a href="${item.value}" target="_blank" class="mono text-sm ${config.color} hover:underline break-all">${item.value}</a>`
+            html += `<div class="rounded-lg bg-dark-900/50 border border-gray-800/50 overflow-hidden">
+                <div class="finding-row flex items-center justify-between p-3" onclick="toggleDropdown(${idx})">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <span class="chevron text-gray-500 text-xs flex-shrink-0" id="chevron-${idx}">&#9654;</span>
+                        ${isUrl ? `<a href="${item.value}" target="_blank" onclick="event.stopPropagation()" class="mono text-sm ${config.color} hover:underline break-all">${item.value}</a>`
                                : `<span class="mono text-sm text-gray-200 break-all">${escapeHtml(item.value)}</span>`}
                     </div>
-                    <div class="flex items-center gap-2 ml-4 flex-shrink-0">
+                    <div class="flex items-center gap-3 ml-4 flex-shrink-0">
+                        <div class="text-xs">${quickMeta}</div>
                         <span class="text-xs text-gray-600">${item.source_tool}</span>
-                        <div class="w-16 bg-dark-800 rounded-full h-1.5">
-                            <div class="h-1.5 rounded-full ${confidence > 80 ? 'bg-green-500' : confidence > 50 ? 'bg-yellow-500' : 'bg-gray-600'}" style="width:${confidence}%"></div>
+                        <div class="w-12 bg-dark-800 rounded-full h-1.5">
+                            <div class="h-1.5 rounded-full ${confidenceColor}" style="width:${confidence}%"></div>
                         </div>
                         <span class="mono text-xs text-gray-500">${confidence}%</span>
+                        <span class="mono text-xs text-gray-600">${metaCount} fields</span>
                     </div>
                 </div>
-                ${metaHtml}
+                <div class="finding-details px-3 pb-3 border-t border-gray-800/30" id="details-${idx}">
+                    <div class="mt-2 p-3 rounded bg-dark-800/50">
+                        <div class="text-xs text-gray-500 mb-2 flex items-center gap-4">
+                            <span>Source: <span class="text-purple-400">${item.source_tool}</span></span>
+                            <span>Confidence: <span class="${confidence > 80 ? 'text-green-400' : confidence > 50 ? 'text-yellow-400' : 'text-gray-400'}">${confidence}%</span></span>
+                            <span>Type: <span class="text-cyan-400">${ftype}</span></span>
+                            ${item.id ? `<span>ID: <span class="text-gray-600">${escapeHtml(String(item.id).substring(0,8))}</span></span>` : ''}
+                        </div>
+                        ${renderMetaTable(meta)}
+                    </div>
+                </div>
             </div>`;
         }
         html += '</div></div>';
         container.innerHTML += html;
     }
-}
-
-function renderCredentialMeta(meta) {
-    let parts = [];
-    if (meta.password) parts.push(`<span class="text-red-400">password: <code class="bg-red-900/30 px-1.5 py-0.5 rounded">${escapeHtml(meta.password)}</code></span>`);
-    if (meta.password_hash) parts.push(`<span class="text-orange-400">hash: <code class="bg-orange-900/30 px-1.5 py-0.5 rounded">${escapeHtml(meta.password_hash)}</code></span>`);
-    if (meta.identity) parts.push(`<span class="text-gray-500">identity: ${escapeHtml(meta.identity)}</span>`);
-    if (meta.source) parts.push(`<span class="text-gray-600">source: ${escapeHtml(meta.source)}</span>`);
-    if (meta.breach) parts.push(`<span class="text-gray-600">breach: ${escapeHtml(meta.breach)}</span>`);
-    if (meta.password_exposure_count) parts.push(`<span class="text-red-300">exposed in ${meta.password_exposure_count} breaches</span>`);
-    return parts.length ? `<div class="text-xs mt-1.5 flex flex-wrap gap-3">${parts.join('')}</div>` : '';
-}
-
-function renderBreachMeta(meta) {
-    let parts = [];
-    if (meta.data_types_exposed) parts.push(`<span class="text-red-300">data exposed: ${escapeHtml(String(meta.data_types_exposed))}</span>`);
-    if (meta.breach_date) parts.push(`<span class="text-gray-500">date: ${escapeHtml(meta.breach_date)}</span>`);
-    if (meta.breach_domain) parts.push(`<span class="text-gray-500">domain: ${escapeHtml(meta.breach_domain)}</span>`);
-    if (meta.records_exposed) parts.push(`<span class="text-orange-400">${meta.records_exposed.toLocaleString()} records</span>`);
-    if (meta.password_exposed) parts.push(`<span class="text-red-500 font-semibold">PASSWORDS EXPOSED</span>`);
-    return parts.length ? `<div class="text-xs mt-1.5 flex flex-wrap gap-3">${parts.join('')}</div>` : '';
-}
-
-function renderProfileMeta(meta) {
-    let parts = [];
-    if (meta.site) parts.push(`<span class="text-gray-500">${escapeHtml(meta.site)}</span>`);
-    if (meta.username) parts.push(`<span class="text-green-400">@${escapeHtml(meta.username)}</span>`);
-    if (meta.registration_confirmed) parts.push(`<span class="text-cyan-400">registration confirmed</span>`);
-    if (meta.link_type) parts.push(`<span class="text-gray-600">via: ${escapeHtml(meta.link_type)}</span>`);
-    if (meta.tags) parts.push(`<span class="text-gray-600">tags: ${escapeHtml(String(meta.tags))}</span>`);
-    return parts.length ? `<div class="text-xs mt-1.5 flex flex-wrap gap-3">${parts.join('')}</div>` : '';
 }
 
 function escapeHtml(text) {

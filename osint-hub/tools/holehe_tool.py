@@ -75,26 +75,13 @@ class HoleheTool(ToolWrapper):
 
                     findings.append(Finding(
                         FindingType.REGISTERED_SITE,
-                        site,
+                        site_url,
                         source_tool=self.name,
                         confidence=0.9,
                         metadata={
-                            "email": input_value,
-                            "status": "registered",
-                            "site_url": site_url,
-                        },
-                    ))
-
-                    # Also add as a social profile link so users get clickable URLs
-                    findings.append(Finding(
-                        FindingType.SOCIAL_PROFILE,
-                        site_url,
-                        source_tool=self.name,
-                        confidence=0.7,
-                        metadata={
                             "site": site,
                             "email": input_value,
-                            "registration_confirmed": True,
+                            "status": "registered",
                         },
                     ))
 

@@ -188,7 +188,20 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+    .finding-row { cursor: pointer; transition: all 0.15s ease; }
+    .finding-row:hover { background: rgba(83, 52, 131, 0.15) !important; }
+    .finding-details { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; }
+    .finding-details.open { max-height: 800px; padding-top: 0.75rem; }
+    .chevron { transition: transform 0.2s ease; display: inline-block; }
+    .chevron.open { transform: rotate(90deg); }
+    .meta-table td { padding: 0.2rem 0.5rem 0.2rem 0; vertical-align: top; }
+    .meta-key { color: #9ca3af; white-space: nowrap; }
+    .meta-val { color: #e5e7eb; word-break: break-all; }
+</style>
 <script>
+let scanFindingIdx = 0;
+
 const CATEGORY_CONFIG = {
     social_profile: { label: 'Social Profiles', color: 'text-cyber-blue', bg: 'bg-blue-900/20' },
     registered_site: { label: 'Registered Sites', color: 'text-cyan-400', bg: 'bg-cyan-900/20' },
@@ -208,7 +221,6 @@ const CATEGORY_CONFIG = {
     related_domain: { label: 'Related Domains', color: 'text-teal-300', bg: 'bg-teal-900/20' },
     subdomain: { label: 'Subdomains', color: 'text-teal-200', bg: 'bg-teal-900/20' },
     ip_address: { label: 'IP Addresses', color: 'text-gray-300', bg: 'bg-gray-800' },
-    // V3 Deep OSINT categories
     dark_web_mention: { label: 'Dark Web Mentions', color: 'text-amber-400', bg: 'bg-amber-900/30' },
     code_repository: { label: 'Code Repositories', color: 'text-lime-400', bg: 'bg-lime-900/20' },
     forum_post: { label: 'Forum Posts', color: 'text-sky-400', bg: 'bg-sky-900/20' },
@@ -237,6 +249,38 @@ const STATUS_COLORS = {
 };
 
 let polling = null;
+
+function toggleScanDropdown(id) {
+    const el = document.getElementById('sd-' + id);
+    const chevron = document.getElementById('sc-' + id);
+    if (el) {
+        el.classList.toggle('open');
+        if (chevron) chevron.classList.toggle('open');
+    }
+}
+
+function renderScanMetaTable(meta) {
+    if (!meta || Object.keys(meta).length === 0) return '<span class="text-gray-600 text-xs">No additional data</span>';
+    let html = '<table class="meta-table text-xs mono w-full">';
+    for (const [key, val] of Object.entries(meta)) {
+        let displayVal;
+        if (typeof val === 'object' && val !== null) {
+            displayVal = '<pre class="text-xs text-gray-300 whitespace-pre-wrap">' + escapeHtml(JSON.stringify(val, null, 2)) + '</pre>';
+        } else if (typeof val === 'boolean') {
+            displayVal = val ? '<span class="text-green-400">true</span>' : '<span class="text-red-400">false</span>';
+        } else {
+            displayVal = escapeHtml(String(val));
+        }
+        if (typeof val === 'string' && val.startsWith('http')) {
+            displayVal = `<a href="${escapeHtml(val)}" target="_blank" class="text-purple-400 hover:underline">${escapeHtml(val)}</a>`;
+        }
+        const isSensitive = ['password', 'password_hash', 'credential'].includes(key);
+        const valClass = isSensitive ? 'text-red-400' : 'meta-val';
+        html += `<tr><td class="meta-key">${escapeHtml(key)}</td><td class="${valClass}">${displayVal}</td></tr>`;
+    }
+    html += '</table>';
+    return html;
+}
 
 document.getElementById('scan-form').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -361,9 +405,10 @@ function updateResults(results) {
     document.getElementById('stat-messaging').textContent = (fbt.messaging_profile || []).length;
     document.getElementById('stat-webmentions').textContent = (fbt.web_mention || []).length;
 
-    // Findings by category - prioritize critical findings
+    // Findings by category with expandable dropdowns
     const container = document.getElementById('findings-container');
     container.innerHTML = '';
+    scanFindingIdx = 0;
 
     const categoryOrder = [
         'leaked_credential', 'password_hash', 'breach',
@@ -395,94 +440,42 @@ function updateResults(results) {
                 <h4 class="font-medium ${config.color}">${config.label}</h4>
                 <span class="mono text-xs ${config.color}">${items.length}</span>
             </div>
-            <div class="space-y-1.5">`;
+            <div class="space-y-1">`;
 
         for (const item of items.slice(0, 50)) {
+            const idx = scanFindingIdx++;
             const value = item.value || '';
             const isUrl = value.startsWith('http');
             const confidence = Math.round((item.confidence || 0) * 100);
             const source = item.source_tool || '';
             const meta = item.metadata || {};
-            const confidenceColor = confidence > 80 ? 'text-green-400' : (confidence > 50 ? 'text-yellow-400' : 'text-gray-500');
+            const confidenceColor = confidence > 80 ? 'bg-green-500' : (confidence > 50 ? 'bg-yellow-500' : 'bg-gray-600');
 
-            // Build metadata line based on type
-            let metaHtml = '';
-            if (ftype === 'leaked_credential') {
-                let parts = [];
-                if (meta.password) parts.push(`<span class="text-red-400">pw: <code class="bg-red-900/30 px-1 rounded">${escapeHtml(meta.password)}</code></span>`);
-                if (meta.password_hash) parts.push(`<span class="text-orange-400">hash: <code class="bg-orange-900/30 px-1 rounded">${escapeHtml(meta.password_hash)}</code></span>`);
-                if (meta.source) parts.push(`<span class="text-gray-600">${escapeHtml(meta.source)}</span>`);
-                if (meta.password_exposure_count) parts.push(`<span class="text-red-300">${meta.password_exposure_count} breaches</span>`);
-                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
-            } else if (ftype === 'breach' && (meta.data_types_exposed || meta.password_exposed)) {
-                let parts = [];
-                if (meta.data_types_exposed) parts.push(`<span class="text-red-300">${escapeHtml(String(meta.data_types_exposed))}</span>`);
-                if (meta.password_exposed) parts.push(`<span class="text-red-500 font-bold">PW EXPOSED</span>`);
-                if (meta.breach_date) parts.push(`<span class="text-gray-600">${escapeHtml(meta.breach_date)}</span>`);
-                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
-            } else if (ftype === 'social_profile' && meta.site) {
-                let parts = [`<span class="text-gray-600">${escapeHtml(meta.site)}</span>`];
-                if (meta.registration_confirmed) parts.push(`<span class="text-cyan-400">registered</span>`);
-                metaHtml = `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>`;
-            } else if (ftype === 'dark_web_mention') {
-                let parts = [];
-                if (meta.title) parts.push(`<span class="text-amber-300">${escapeHtml(meta.title)}</span>`);
-                if (meta.source) parts.push(`<span class="text-gray-600">via ${escapeHtml(meta.source)}</span>`);
-                if (meta.date) parts.push(`<span class="text-gray-600">${escapeHtml(meta.date)}</span>`);
-                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
-            } else if (ftype === 'code_repository') {
-                let parts = [];
-                if (meta.repo) parts.push(`<span class="text-lime-300">${escapeHtml(meta.repo)}</span>`);
-                if (meta.language) parts.push(`<span class="text-gray-500">${escapeHtml(meta.language)}</span>`);
-                if (meta.snippet) parts.push(`<span class="text-gray-600 truncate max-w-xs inline-block">${escapeHtml(meta.snippet.substring(0,100))}</span>`);
-                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
-            } else if (ftype === 'forum_post') {
-                let parts = [];
-                if (meta.title) parts.push(`<span class="text-sky-300">${escapeHtml(meta.title.substring(0,80))}</span>`);
-                if (meta.platform) parts.push(`<span class="text-gray-500">${escapeHtml(meta.platform)}</span>`);
-                if (meta.subreddit) parts.push(`<span class="text-orange-300">r/${escapeHtml(meta.subreddit)}</span>`);
-                if (meta.score) parts.push(`<span class="text-gray-600">${meta.score} pts</span>`);
-                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
-            } else if (ftype === 'archived_page') {
-                let parts = [];
-                if (meta.original_url) parts.push(`<span class="text-violet-300">${escapeHtml(meta.original_url.substring(0,60))}</span>`);
-                if (meta.platform) parts.push(`<span class="text-gray-500">${escapeHtml(meta.platform)}</span>`);
-                if (meta.timestamp) parts.push(`<span class="text-gray-600">${escapeHtml(meta.timestamp)}</span>`);
-                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
-            } else if (ftype === 'dns_record') {
-                let parts = [];
-                if (meta.record_type) parts.push(`<span class="text-emerald-300">${escapeHtml(meta.record_type)}</span>`);
-                if (meta.ip) parts.push(`<span class="text-gray-500">${escapeHtml(meta.ip)}</span>`);
-                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
-            } else if (ftype === 'messaging_profile') {
-                let parts = [];
-                if (meta.platform) parts.push(`<span class="text-fuchsia-300">${escapeHtml(meta.platform)}</span>`);
-                if (meta.title) parts.push(`<span class="text-gray-400">${escapeHtml(meta.title)}</span>`);
-                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
-            } else if (ftype === 'document_url') {
-                let parts = [];
-                if (meta.file_type) parts.push(`<span class="text-indigo-300">${escapeHtml(meta.file_type.toUpperCase())}</span>`);
-                if (meta.title) parts.push(`<span class="text-gray-500">${escapeHtml(meta.title.substring(0,80))}</span>`);
-                if (meta.sensitive) parts.push(`<span class="text-red-400 font-bold">SENSITIVE</span>`);
-                metaHtml = parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>` : '';
-            } else if (ftype === 'web_mention' && meta.title) {
-                let parts = [`<span class="text-gray-400">${escapeHtml(meta.title.substring(0,80))}</span>`];
-                if (meta.context) parts.push(`<span class="text-yellow-400">${escapeHtml(meta.context)}</span>`);
-                metaHtml = `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join('')}</div>`;
-            }
-
-            html += `<div class="flex flex-col py-1.5 px-2 rounded ${config.bg} group">
-                <div class="flex items-center justify-between">
-                    <div class="flex-1 min-w-0">
-                        ${isUrl ? `<a href="${value}" target="_blank" class="mono text-sm ${config.color} hover:underline truncate block">${value}</a>`
+            html += `<div class="rounded ${config.bg} overflow-hidden">
+                <div class="finding-row flex items-center justify-between py-1.5 px-2" onclick="toggleScanDropdown(${idx})">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <span class="chevron text-gray-500 text-xs flex-shrink-0" id="sc-${idx}">&#9654;</span>
+                        ${isUrl ? `<a href="${value}" target="_blank" onclick="event.stopPropagation()" class="mono text-sm ${config.color} hover:underline truncate block">${value}</a>`
                                : `<span class="mono text-sm text-gray-300 truncate block">${escapeHtml(value)}</span>`}
                     </div>
                     <div class="flex items-center gap-2 ml-3 flex-shrink-0">
                         <span class="text-xs text-gray-600">${source}</span>
-                        <span class="mono text-xs ${confidenceColor}">${confidence}%</span>
+                        <div class="w-10 bg-dark-800 rounded-full h-1">
+                            <div class="h-1 rounded-full ${confidenceColor}" style="width:${confidence}%"></div>
+                        </div>
+                        <span class="mono text-xs text-gray-500">${confidence}%</span>
                     </div>
                 </div>
-                ${metaHtml}
+                <div class="finding-details px-2 pb-2 border-t border-gray-800/20" id="sd-${idx}">
+                    <div class="mt-1 p-2 rounded bg-dark-800/50">
+                        <div class="text-xs text-gray-500 mb-1.5 flex gap-3">
+                            <span>Source: <span class="text-purple-400">${source}</span></span>
+                            <span>Confidence: <span class="${confidence > 80 ? 'text-green-400' : 'text-yellow-400'}">${confidence}%</span></span>
+                            <span>Type: <span class="text-cyan-400">${ftype}</span></span>
+                        </div>
+                        ${renderScanMetaTable(meta)}
+                    </div>
+                </div>
             </div>`;
         }
         if (items.length > 50) {
