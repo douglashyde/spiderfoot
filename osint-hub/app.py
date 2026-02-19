@@ -6,10 +6,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from flask import Flask, render_template, request, jsonify
 from engine.orchestrator import Orchestrator
+from engine.kimi_analysis import KimiAnalyzer
 from tools.registry import get_all_tool_info
 
 app = Flask(__name__)
 orchestrator = Orchestrator()
+kimi_analyzer = KimiAnalyzer()
 
 
 @app.route("/")
@@ -241,14 +243,49 @@ def api_tools():
     return jsonify(get_all_tool_info())
 
 
+@app.route("/api/scan/ai-analysis", methods=["POST"])
+def api_ai_analysis():
+    """Run Kimi AI analysis on scan results."""
+    if not kimi_analyzer.is_available():
+        return jsonify({"error": "Kimi API key not configured. Set KIMI_API_KEY environment variable or use /api/settings/kimi to configure."}), 400
+
+    results = orchestrator.get_results()
+    if not results or not results.get("findings_by_type"):
+        return jsonify({"error": "No scan results to analyze. Run a scan first."}), 400
+
+    analysis = kimi_analyzer.analyze_findings(results)
+    return jsonify(analysis)
+
+
+@app.route("/api/settings/kimi", methods=["POST"])
+def api_set_kimi_key():
+    """Set Kimi API key at runtime."""
+    data = request.json
+    key = data.get("api_key", "").strip()
+    if not key:
+        return jsonify({"error": "No API key provided"}), 400
+    kimi_analyzer.api_key = key
+    os.environ["KIMI_API_KEY"] = key
+    return jsonify({"status": "ok", "message": "Kimi API key configured"})
+
+
+@app.route("/api/settings/kimi", methods=["GET"])
+def api_get_kimi_status():
+    """Check if Kimi API is configured."""
+    return jsonify({
+        "configured": kimi_analyzer.is_available(),
+        "model": kimi_analyzer.model,
+    })
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     host = os.environ.get("HOST", "0.0.0.0")
     print(f"""
     ╔══════════════════════════════════════════╗
-    ║          OSINT Hub V5                    ║
+    ║          OSINT Hub V6                    ║
     ║   Unified OSINT Intelligence Platform    ║
-    ║   41 tools | Expandable results | URLs   ║
+    ║   41 tools | Kimi AI | Full data pull    ║
     ╠══════════════════════════════════════════╣
     ║   http://{host}:{port}                   ║
     ╚══════════════════════════════════════════╝

@@ -88,7 +88,7 @@ if sudo docker compose ps | grep -q "Up"; then
     echo "  ║   API:     http://$PUBLIC_IP/api/tools            ║"
     echo "  ║   Scan:    http://$PUBLIC_IP/scan                 ║"
     echo "  ║                                                   ║"
-    echo "  ║   V5 | 41 tools | expandable results | real URLs   ║"
+    echo "  ║   V6 | 41 tools | Kimi AI | Full data pull          ║"
     echo "  ║                                                   ║"
     echo "  ╚══════════════════════════════════════════════════╝"
     echo ""

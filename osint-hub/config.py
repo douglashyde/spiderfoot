@@ -1,7 +1,7 @@
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-HOME_DIR = os.environ.get("OSINT_HOME", os.path.expanduser("~"))
+HOME_DIR = os.environ.get("OSINT_HOME", "/home/user")
 
 TOOL_PATHS = {
     "sherlock": os.path.join(HOME_DIR, "sherlock"),
@@ -60,3 +60,8 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 SCAN_TIMEOUT = 300  # seconds per tool
 MAX_CHAIN_DEPTH = 3  # how many levels deep the correlator will chase new leads
+
+# Kimi AI Analysis (Moonshot API - OpenAI-compatible)
+KIMI_API_KEY = os.environ.get("KIMI_API_KEY", "")
+KIMI_BASE_URL = "https://api.moonshot.ai/v1"
+KIMI_MODEL = os.environ.get("KIMI_MODEL", "kimi-k2")
