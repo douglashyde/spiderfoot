@@ -259,6 +259,52 @@ function toggleScanDropdown(id) {
     }
 }
 
+function buildRichSummary(ftype, item) {
+    const meta = item.metadata || {};
+    let parts = [];
+    if (ftype === 'leaked_credential') {
+        if (meta.password) parts.push(`<span class="text-red-400 font-semibold">Password: <code class="bg-red-900/30 px-1 rounded">${escapeHtml(meta.password)}</code></span>`);
+        if (meta.password_hash) parts.push(`<span class="text-orange-400">Hash: <code class="bg-orange-900/30 px-1 rounded">${escapeHtml(meta.password_hash.substring(0,20))}...</code></span>`);
+        if (meta.breach) parts.push(`<span class="text-gray-400">Breach: ${escapeHtml(meta.breach)}</span>`);
+        if (meta.source) parts.push(`<span class="text-gray-500">via ${escapeHtml(meta.source)}</span>`);
+        if (meta.login_url) parts.push(`<span class="text-purple-400">Login: ${escapeHtml(meta.login_url.substring(0,40))}</span>`);
+        if (meta.password_exposure_count) parts.push(`<span class="text-red-300 font-bold">Exposed in ${meta.password_exposure_count} breaches</span>`);
+    } else if (ftype === 'breach') {
+        if (meta.data_types_exposed) parts.push(`<span class="text-red-300">Data: ${escapeHtml(String(meta.data_types_exposed))}</span>`);
+        if (meta.password_exposed) parts.push(`<span class="text-red-500 font-bold">PASSWORDS EXPOSED</span>`);
+        if (meta.breach_date) parts.push(`<span class="text-gray-400">Date: ${escapeHtml(meta.breach_date)}</span>`);
+        if (meta.records_exposed) parts.push(`<span class="text-orange-400">${Number(meta.records_exposed).toLocaleString()} records</span>`);
+        if (meta.computer_name) parts.push(`<span class="text-amber-400">Machine: ${escapeHtml(meta.computer_name)}</span>`);
+        if (meta.operating_system) parts.push(`<span class="text-gray-400">OS: ${escapeHtml(meta.operating_system)}</span>`);
+        if (meta.date_compromised) parts.push(`<span class="text-gray-400">Compromised: ${escapeHtml(meta.date_compromised)}</span>`);
+        if (meta.malware_path) parts.push(`<span class="text-red-300">Malware: ${escapeHtml(meta.malware_path)}</span>`);
+    } else if (ftype === 'social_profile' || ftype === 'registered_site') {
+        if (meta.site) parts.push(`<span class="text-gray-400">${escapeHtml(meta.site)}</span>`);
+        if (meta.username) parts.push(`<span class="text-green-400">@${escapeHtml(meta.username)}</span>`);
+        if (meta.email) parts.push(`<span class="text-purple-300">${escapeHtml(meta.email)}</span>`);
+        if (meta.status) parts.push(`<span class="text-cyan-400">${escapeHtml(meta.status)}</span>`);
+    } else if (ftype === 'dark_web_mention') {
+        if (meta.title) parts.push(`<span class="text-amber-300">${escapeHtml(meta.title)}</span>`);
+        if (meta.source) parts.push(`<span class="text-gray-500">via ${escapeHtml(meta.source)}</span>`);
+    } else if (ftype === 'password_hash') {
+        if (meta.hash_type) parts.push(`<span class="text-orange-400">${escapeHtml(meta.hash_type)}</span>`);
+    } else if (ftype === 'location') {
+        if (meta.carrier) parts.push(`<span class="text-orange-300">Carrier: ${escapeHtml(meta.carrier)}</span>`);
+        if (meta.country) parts.push(`<span class="text-gray-400">${escapeHtml(meta.country)}</span>`);
+    } else {
+        const skipKeys = new Set(['type', 'generated', 'needs_verification']);
+        let count = 0;
+        for (const [k, v] of Object.entries(meta)) {
+            if (skipKeys.has(k) || count >= 3) break;
+            if (v && typeof v !== 'object') {
+                parts.push(`<span class="text-gray-400">${escapeHtml(k)}: ${escapeHtml(String(v).substring(0,50))}</span>`);
+                count++;
+            }
+        }
+    }
+    return parts.length ? `<div class="text-xs mt-1 flex flex-wrap gap-2">${parts.join(' ')}</div>` : '';
+}
+
 function renderScanMetaTable(meta) {
     if (!meta || Object.keys(meta).length === 0) return '<span class="text-gray-600 text-xs">No additional data</span>';
     let html = '<table class="meta-table text-xs mono w-full">';
@@ -450,15 +496,19 @@ function updateResults(results) {
             const source = item.source_tool || '';
             const meta = item.metadata || {};
             const confidenceColor = confidence > 80 ? 'bg-green-500' : (confidence > 50 ? 'bg-yellow-500' : 'bg-gray-600');
+            const richSummary = buildRichSummary(ftype, item);
 
             html += `<div class="rounded ${config.bg} overflow-hidden">
-                <div class="finding-row flex items-center justify-between py-1.5 px-2" onclick="toggleScanDropdown(${idx})">
-                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                        <span class="chevron text-gray-500 text-xs flex-shrink-0" id="sc-${idx}">&#9654;</span>
-                        ${isUrl ? `<a href="${value}" target="_blank" onclick="event.stopPropagation()" class="mono text-sm ${config.color} hover:underline truncate block">${value}</a>`
-                               : `<span class="mono text-sm text-gray-300 truncate block">${escapeHtml(value)}</span>`}
+                <div class="finding-row flex items-start justify-between py-1.5 px-2" onclick="toggleScanDropdown(${idx})">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="chevron text-gray-500 text-xs flex-shrink-0" id="sc-${idx}">&#9654;</span>
+                            ${isUrl ? `<a href="${value}" target="_blank" onclick="event.stopPropagation()" class="mono text-sm ${config.color} hover:underline truncate block">${value}</a>`
+                                   : `<span class="mono text-sm text-gray-300 truncate block">${escapeHtml(value)}</span>`}
+                        </div>
+                        ${richSummary}
                     </div>
-                    <div class="flex items-center gap-2 ml-3 flex-shrink-0">
+                    <div class="flex items-center gap-2 ml-3 flex-shrink-0 mt-0.5">
                         <span class="text-xs text-gray-600">${source}</span>
                         <div class="w-10 bg-dark-800 rounded-full h-1">
                             <div class="h-1 rounded-full ${confidenceColor}" style="width:${confidence}%"></div>

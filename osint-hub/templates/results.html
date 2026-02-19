@@ -32,7 +32,23 @@
         <!-- Summary Stats -->
         <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6" id="summary-stats"></div>
 
-        <!-- Findings -->
+        <!-- NEW INTELLIGENCE (filtered, no filler) -->
+        <div id="new-intel-section" class="mb-6" style="display:none">
+            <div class="card rounded-lg p-5 border-2 border-cyber-green/30">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-cyber-green">New Intelligence</h3>
+                    <span class="mono text-sm text-cyber-green" id="new-intel-count"></span>
+                </div>
+                <p class="text-xs text-gray-500 mb-4">Genuinely new discoveries — seeds, duplicates, and speculative filler removed.</p>
+                <div id="new-intel-container" class="space-y-1"></div>
+            </div>
+        </div>
+
+        <!-- All Findings (full dump) -->
+        <div class="mb-3">
+            <h3 class="text-lg font-semibold text-gray-400">All Findings (Raw)</h3>
+            <p class="text-xs text-gray-600">Complete output from all tools including seeds and generated data.</p>
+        </div>
         <div id="results-findings" class="space-y-4"></div>
 
         <!-- Recommendations -->
@@ -55,6 +71,7 @@
     .meta-table td { padding: 0.25rem 0.75rem 0.25rem 0; vertical-align: top; }
     .meta-key { color: #9ca3af; white-space: nowrap; }
     .meta-val { color: #e5e7eb; word-break: break-all; }
+    .intel-badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 0.25rem; font-size: 0.65rem; font-weight: 600; }
 </style>
 <script>
 const CATEGORY_CONFIG = {
@@ -115,7 +132,8 @@ function loadResults() {
     Promise.all([
         fetch('/api/scan/results').then(r => r.json()),
         fetch('/api/scan/recommendations').then(r => r.json()),
-    ]).then(([results, recs]) => {
+        fetch('/api/scan/intelligence').then(r => r.json()),
+    ]).then(([results, recs, intel]) => {
         scanResults = results;
         if (!results || !results.total_findings) {
             document.getElementById('results-loading').innerHTML = '<p class="text-gray-500">No scan results yet. <a href="/scan" class="text-purple-400 hover:underline">Start a scan</a></p>';
@@ -125,6 +143,7 @@ function loadResults() {
         document.getElementById('results-content').style.display = 'block';
         renderSeeds(results.seeds);
         renderSummary(results);
+        if (intel && intel.items && intel.items.length > 0) renderNewIntel(intel);
         renderFindings(results.findings_by_type);
         if (recs && recs.length > 0) renderRecommendations(recs);
     });
@@ -192,17 +211,137 @@ function renderMetaTable(meta) {
         } else {
             displayVal = escapeHtml(String(val));
         }
-        // Make URLs clickable in values
         if (typeof val === 'string' && val.startsWith('http')) {
             displayVal = `<a href="${escapeHtml(val)}" target="_blank" class="text-purple-400 hover:underline">${escapeHtml(val)}</a>`;
         }
-        // Highlight sensitive fields
         const isSensitive = ['password', 'password_hash', 'credential'].includes(key);
         const valClass = isSensitive ? 'text-red-400' : 'meta-val';
         html += `<tr><td class="meta-key">${escapeHtml(key)}</td><td class="${valClass}">${displayVal}</td></tr>`;
     }
     html += '</table>';
     return html;
+}
+
+// Build a rich inline summary for each finding based on its type and metadata
+function buildRichSummary(ftype, item) {
+    const meta = item.metadata || {};
+    const val = item.value || '';
+    let parts = [];
+
+    if (ftype === 'leaked_credential') {
+        if (meta.password) parts.push(`<span class="text-red-400 font-semibold">Password: <code class="bg-red-900/30 px-1.5 py-0.5 rounded">${escapeHtml(meta.password)}</code></span>`);
+        if (meta.password_hash) parts.push(`<span class="text-orange-400">Hash: <code class="bg-orange-900/30 px-1 rounded">${escapeHtml(meta.password_hash.substring(0,20))}...</code></span>`);
+        if (meta.breach) parts.push(`<span class="text-gray-400">Breach: ${escapeHtml(meta.breach)}</span>`);
+        if (meta.source) parts.push(`<span class="text-gray-500">via ${escapeHtml(meta.source)}</span>`);
+        if (meta.login_url) parts.push(`<span class="text-purple-400">Login: ${escapeHtml(meta.login_url.substring(0,40))}</span>`);
+        if (meta.password_exposure_count) parts.push(`<span class="text-red-300 font-bold">Exposed in ${meta.password_exposure_count} breaches</span>`);
+    } else if (ftype === 'breach') {
+        if (meta.data_types_exposed) parts.push(`<span class="text-red-300">Data: ${escapeHtml(String(meta.data_types_exposed))}</span>`);
+        if (meta.password_exposed) parts.push(`<span class="text-red-500 font-bold">PASSWORDS EXPOSED</span>`);
+        if (meta.breach_date) parts.push(`<span class="text-gray-400">Date: ${escapeHtml(meta.breach_date)}</span>`);
+        if (meta.records_exposed) parts.push(`<span class="text-orange-400">${Number(meta.records_exposed).toLocaleString()} records</span>`);
+        if (meta.breach_domain) parts.push(`<span class="text-gray-500">${escapeHtml(meta.breach_domain)}</span>`);
+        if (meta.computer_name) parts.push(`<span class="text-amber-400">Machine: ${escapeHtml(meta.computer_name)}</span>`);
+        if (meta.operating_system) parts.push(`<span class="text-gray-400">OS: ${escapeHtml(meta.operating_system)}</span>`);
+        if (meta.date_compromised) parts.push(`<span class="text-gray-400">Compromised: ${escapeHtml(meta.date_compromised)}</span>`);
+        if (meta.malware_path) parts.push(`<span class="text-red-300">Malware: ${escapeHtml(meta.malware_path)}</span>`);
+    } else if (ftype === 'social_profile' || ftype === 'registered_site') {
+        if (meta.site) parts.push(`<span class="text-gray-400">${escapeHtml(meta.site)}</span>`);
+        if (meta.username) parts.push(`<span class="text-green-400">@${escapeHtml(meta.username)}</span>`);
+        if (meta.email) parts.push(`<span class="text-purple-300">${escapeHtml(meta.email)}</span>`);
+        if (meta.status) parts.push(`<span class="text-cyan-400">${escapeHtml(meta.status)}</span>`);
+        if (meta.registration_confirmed) parts.push(`<span class="text-cyan-400">registration confirmed</span>`);
+        if (meta.tags) parts.push(`<span class="text-gray-500">tags: ${escapeHtml(String(meta.tags))}</span>`);
+    } else if (ftype === 'dark_web_mention') {
+        if (meta.title) parts.push(`<span class="text-amber-300">${escapeHtml(meta.title)}</span>`);
+        if (meta.source) parts.push(`<span class="text-gray-500">via ${escapeHtml(meta.source)}</span>`);
+        if (meta.date) parts.push(`<span class="text-gray-500">${escapeHtml(meta.date)}</span>`);
+    } else if (ftype === 'code_repository') {
+        if (meta.repo) parts.push(`<span class="text-lime-300">${escapeHtml(meta.repo)}</span>`);
+        if (meta.language) parts.push(`<span class="text-gray-400">${escapeHtml(meta.language)}</span>`);
+        if (meta.snippet) parts.push(`<span class="text-gray-500 truncate max-w-sm inline-block align-bottom">${escapeHtml(meta.snippet.substring(0,80))}</span>`);
+    } else if (ftype === 'forum_post') {
+        if (meta.title) parts.push(`<span class="text-sky-300">${escapeHtml(meta.title.substring(0,80))}</span>`);
+        if (meta.platform) parts.push(`<span class="text-gray-400">${escapeHtml(meta.platform)}</span>`);
+        if (meta.subreddit) parts.push(`<span class="text-orange-300">r/${escapeHtml(meta.subreddit)}</span>`);
+        if (meta.score) parts.push(`<span class="text-gray-500">${meta.score} pts</span>`);
+    } else if (ftype === 'password_hash') {
+        if (meta.hash_type) parts.push(`<span class="text-orange-400">${escapeHtml(meta.hash_type)}</span>`);
+        if (meta.sha1) parts.push(`<span class="text-gray-400">SHA1: ${escapeHtml(meta.sha1.substring(0,16))}...</span>`);
+    } else if (ftype === 'location') {
+        if (meta.carrier) parts.push(`<span class="text-orange-300">Carrier: ${escapeHtml(meta.carrier)}</span>`);
+        if (meta.country) parts.push(`<span class="text-gray-400">${escapeHtml(meta.country)}</span>`);
+        if (meta.region) parts.push(`<span class="text-gray-500">${escapeHtml(meta.region)}</span>`);
+    } else if (ftype === 'dns_record') {
+        if (meta.record_type) parts.push(`<span class="text-emerald-300">${escapeHtml(meta.record_type)}</span>`);
+        if (meta.ip) parts.push(`<span class="text-gray-400">${escapeHtml(meta.ip)}</span>`);
+    } else if (ftype === 'messaging_profile') {
+        if (meta.platform) parts.push(`<span class="text-fuchsia-300">${escapeHtml(meta.platform)}</span>`);
+        if (meta.title) parts.push(`<span class="text-gray-400">${escapeHtml(meta.title)}</span>`);
+    } else {
+        // Generic: show first 3 interesting metadata values
+        const skipKeys = new Set(['type', 'generated', 'needs_verification']);
+        let count = 0;
+        for (const [k, v] of Object.entries(meta)) {
+            if (skipKeys.has(k) || count >= 3) break;
+            if (v && typeof v !== 'object') {
+                parts.push(`<span class="text-gray-400">${escapeHtml(k)}: ${escapeHtml(String(v).substring(0,50))}</span>`);
+                count++;
+            }
+        }
+    }
+
+    return parts.length ? `<div class="text-xs mt-1.5 flex flex-wrap gap-2">${parts.join(' ')}</div>` : '';
+}
+
+function renderNewIntel(intel) {
+    const section = document.getElementById('new-intel-section');
+    const container = document.getElementById('new-intel-container');
+    section.style.display = 'block';
+    document.getElementById('new-intel-count').textContent = `${intel.total} unique findings`;
+
+    let idx = 10000; // offset to avoid ID collision with main findings
+    for (const item of intel.items) {
+        const ftype = item.type || 'raw';
+        const config = CATEGORY_CONFIG[ftype] || { label: ftype, color: 'text-gray-400', icon: '&#128196;' };
+        const isUrl = (item.value || '').startsWith('http');
+        const confidence = Math.round((item.confidence || 0) * 100);
+        const meta = item.metadata || {};
+        const confidenceColor = confidence > 80 ? 'bg-green-500' : confidence > 50 ? 'bg-yellow-500' : 'bg-gray-600';
+        const richSummary = buildRichSummary(ftype, item);
+
+        container.innerHTML += `<div class="rounded-lg bg-dark-900/50 border border-gray-800/50 overflow-hidden">
+            <div class="finding-row flex items-start justify-between p-3" onclick="toggleDropdown(${idx})">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="chevron text-gray-500 text-xs flex-shrink-0" id="chevron-${idx}">&#9654;</span>
+                        <span class="intel-badge ${config.color}" style="background:rgba(128,128,128,0.15)">${config.label}</span>
+                        ${isUrl ? `<a href="${item.value}" target="_blank" onclick="event.stopPropagation()" class="mono text-sm ${config.color} hover:underline break-all">${item.value}</a>`
+                               : `<span class="mono text-sm text-gray-200 break-all">${escapeHtml(item.value)}</span>`}
+                    </div>
+                    ${richSummary}
+                </div>
+                <div class="flex items-center gap-3 ml-4 flex-shrink-0 mt-0.5">
+                    <span class="text-xs text-gray-600">${item.source_tool}</span>
+                    <div class="w-12 bg-dark-800 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full ${confidenceColor}" style="width:${confidence}%"></div>
+                    </div>
+                    <span class="mono text-xs text-gray-500">${confidence}%</span>
+                </div>
+            </div>
+            <div class="finding-details px-3 pb-3 border-t border-gray-800/30" id="details-${idx}">
+                <div class="mt-2 p-3 rounded bg-dark-800/50">
+                    <div class="text-xs text-gray-500 mb-2 flex items-center gap-4">
+                        <span>Source: <span class="text-purple-400">${item.source_tool}</span></span>
+                        <span>Confidence: <span class="${confidence > 80 ? 'text-green-400' : confidence > 50 ? 'text-yellow-400' : 'text-gray-400'}">${confidence}%</span></span>
+                        <span>Type: <span class="text-cyan-400">${ftype}</span></span>
+                    </div>
+                    ${renderMetaTable(meta)}
+                </div>
+            </div>
+        </div>`;
+        idx++;
+    }
 }
 
 function renderFindings(fbt) {
@@ -235,31 +374,24 @@ function renderFindings(fbt) {
             const confidence = Math.round((item.confidence || 0) * 100);
             const meta = item.metadata || {};
             const confidenceColor = confidence > 80 ? 'bg-green-500' : confidence > 50 ? 'bg-yellow-500' : 'bg-gray-600';
-            const metaCount = Object.keys(meta).length;
-
-            // Quick summary from metadata
-            let quickMeta = '';
-            if (meta.site) quickMeta += `<span class="text-gray-500">${escapeHtml(meta.site)}</span> `;
-            if (meta.username) quickMeta += `<span class="text-green-400">@${escapeHtml(meta.username)}</span> `;
-            if (meta.password) quickMeta += `<span class="text-red-400">pw exposed</span> `;
-            if (meta.password_exposed) quickMeta += `<span class="text-red-500 font-bold">PW EXPOSED</span> `;
-            if (meta.registration_confirmed) quickMeta += `<span class="text-cyan-400">registered</span> `;
+            const richSummary = buildRichSummary(ftype, item);
 
             html += `<div class="rounded-lg bg-dark-900/50 border border-gray-800/50 overflow-hidden">
-                <div class="finding-row flex items-center justify-between p-3" onclick="toggleDropdown(${idx})">
-                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                        <span class="chevron text-gray-500 text-xs flex-shrink-0" id="chevron-${idx}">&#9654;</span>
-                        ${isUrl ? `<a href="${item.value}" target="_blank" onclick="event.stopPropagation()" class="mono text-sm ${config.color} hover:underline break-all">${item.value}</a>`
-                               : `<span class="mono text-sm text-gray-200 break-all">${escapeHtml(item.value)}</span>`}
+                <div class="finding-row flex items-start justify-between p-3" onclick="toggleDropdown(${idx})">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="chevron text-gray-500 text-xs flex-shrink-0" id="chevron-${idx}">&#9654;</span>
+                            ${isUrl ? `<a href="${item.value}" target="_blank" onclick="event.stopPropagation()" class="mono text-sm ${config.color} hover:underline break-all">${item.value}</a>`
+                                   : `<span class="mono text-sm text-gray-200 break-all">${escapeHtml(item.value)}</span>`}
+                        </div>
+                        ${richSummary}
                     </div>
-                    <div class="flex items-center gap-3 ml-4 flex-shrink-0">
-                        <div class="text-xs">${quickMeta}</div>
+                    <div class="flex items-center gap-3 ml-4 flex-shrink-0 mt-0.5">
                         <span class="text-xs text-gray-600">${item.source_tool}</span>
                         <div class="w-12 bg-dark-800 rounded-full h-1.5">
                             <div class="h-1.5 rounded-full ${confidenceColor}" style="width:${confidence}%"></div>
                         </div>
                         <span class="mono text-xs text-gray-500">${confidence}%</span>
-                        <span class="mono text-xs text-gray-600">${metaCount} fields</span>
                     </div>
                 </div>
                 <div class="finding-details px-3 pb-3 border-t border-gray-800/30" id="details-${idx}">

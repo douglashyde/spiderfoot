@@ -151,6 +151,91 @@ def api_recommendations():
     return jsonify(orchestrator.get_recommendations())
 
 
+@app.route("/api/scan/intelligence")
+def api_new_intelligence():
+    """Return only genuinely new intelligence — no seeds, no repetition, no filler."""
+    results = orchestrator.get_results()
+    if not results or not results.get("findings_by_type"):
+        return jsonify({"items": [], "summary": {}})
+
+    seeds = results.get("seeds", {})
+    seed_values = set()
+    for v in seeds.values():
+        if v:
+            seed_values.add(v.lower().strip())
+            # Also add parts (e.g. "john doe" -> "john", "doe")
+            for part in v.lower().split():
+                if len(part) > 2:
+                    seed_values.add(part)
+
+    # Types that are just echoing back what the user entered
+    echo_types = {"email", "username", "phone", "full_name", "domain"}
+    # Types that are generated/speculative filler
+    filler_sources = {"user_input", "correlator (username→email)", "correlator (username variant)",
+                      "correlator (email→name)", "correlator (username→name)"}
+
+    items = []
+    seen_values = set()
+
+    fbt = results.get("findings_by_type", {})
+    for ftype, findings in fbt.items():
+        for f in findings:
+            val = (f.get("value") or "").strip()
+            val_lower = val.lower()
+            source = f.get("source_tool", "")
+            meta = f.get("metadata", {})
+            confidence = f.get("confidence", 0)
+
+            # Skip: exact seed echo
+            if ftype in echo_types and val_lower in seed_values:
+                continue
+
+            # Skip: user_input source
+            if source == "user_input":
+                continue
+
+            # Skip: low-confidence generated/speculative stuff
+            if meta.get("generated") or meta.get("needs_verification"):
+                if confidence < 0.5:
+                    continue
+
+            # Skip: correlator filler (email variants, name guesses, username mutations)
+            if source in filler_sources:
+                continue
+
+            # Skip: duplicates by value
+            dedup_key = f"{ftype}:{val_lower}"
+            if dedup_key in seen_values:
+                continue
+            seen_values.add(dedup_key)
+
+            # Skip empty
+            if not val or val.startswith("[TIMEOUT]") or val.startswith("[ERROR]"):
+                continue
+
+            items.append(f)
+
+    # Sort: highest confidence first, then by type priority
+    type_priority = {
+        "leaked_credential": 0, "password_hash": 1, "breach": 2,
+        "dark_web_mention": 3, "social_profile": 4, "messaging_profile": 5,
+        "registered_site": 6, "code_repository": 7, "forum_post": 8,
+        "paste": 9, "photo_url": 10, "location": 11, "address": 12,
+        "employer": 13, "organization": 14, "education": 15,
+        "related_email": 16, "related_username": 17, "related_phone": 18,
+        "ip_address": 19, "dns_record": 20, "certificate": 21,
+    }
+    items.sort(key=lambda f: (type_priority.get(f.get("type", "raw"), 50), -f.get("confidence", 0)))
+
+    # Build summary counts
+    summary = {}
+    for f in items:
+        ft = f.get("type", "raw")
+        summary[ft] = summary.get(ft, 0) + 1
+
+    return jsonify({"items": items, "summary": summary, "total": len(items)})
+
+
 @app.route("/api/tools")
 def api_tools():
     return jsonify(get_all_tool_info())
