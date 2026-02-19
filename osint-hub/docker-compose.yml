@@ -11,6 +11,8 @@ services:
       - OSINT_HOME=/opt
       - PORT=8080
       - HOST=0.0.0.0
+      - KIMI_API_KEY=${KIMI_API_KEY:-}
+      - KIMI_MODEL=${KIMI_MODEL:-kimi-k2}
     volumes:
       - osint-data:/opt/osint-hub/data
     healthcheck:
@@ -18,7 +20,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 60s
 
 volumes:
   osint-data:

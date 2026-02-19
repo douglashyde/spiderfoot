@@ -2,7 +2,8 @@ FROM python:3.11-slim
 
 # System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl wget gcc libffi-dev \
+    git curl wget gcc g++ libffi-dev libxml2-dev libxslt1-dev \
+    nmap whois dnsutils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt
@@ -22,14 +23,14 @@ RUN git clone --depth 1 https://github.com/JoelGMSec/LeakSearch.git || true
 RUN git clone --depth 1 https://github.com/D4Vinci/Cr3dOv3r.git || true
 RUN git clone --depth 1 https://github.com/smicallef/spiderfoot.git || true
 RUN git clone --depth 1 https://github.com/mxrch/GHunt.git || true
-RUN git clone --depth 1 https://github.com/s0md3v/Photon.git
+RUN git clone --depth 1 https://github.com/s0md3v/Photon.git || true
 
 # Install Python tool dependencies
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir \
-    flask gunicorn requests \
+    flask gunicorn requests beautifulsoup4 \
     sherlock-project maigret holehe h8mail social-analyzer \
-    ignorant \
+    ignorant socialscan \
  && (cd /opt/blackbird && pip install --no-cache-dir -r requirements.txt 2>/dev/null || true) \
  && (cd /opt/nexfil && pip install --no-cache-dir -r requirements.txt 2>/dev/null || true) \
  && (cd /opt/theHarvester && pip install --no-cache-dir -r requirements.txt 2>/dev/null || true) \
@@ -37,7 +38,8 @@ RUN pip install --no-cache-dir --upgrade pip \
  && (cd /opt/LeakSearch && pip install --no-cache-dir -r requirements.txt 2>/dev/null || true) \
  && (cd /opt/Cr3dOv3r && pip install --no-cache-dir -r requirements.txt 2>/dev/null || true) \
  && (cd /opt/spiderfoot && pip install --no-cache-dir -r requirements.txt 2>/dev/null || true) \
- && (cd /opt/Photon && pip install --no-cache-dir -r requirements.txt 2>/dev/null || true)
+ && (cd /opt/Photon && pip install --no-cache-dir -r requirements.txt 2>/dev/null || true) \
+ && (cd /opt/GHunt && pip install --no-cache-dir -r requirements.txt 2>/dev/null || true)
 
 # Copy OSINT Hub application
 WORKDIR /opt/osint-hub
